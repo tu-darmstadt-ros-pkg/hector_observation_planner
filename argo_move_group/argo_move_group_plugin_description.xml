@@ -1,0 +1,9 @@
+<library path="libargo_move_group">
+
+  <class name="argo_move_group/ArgoMoveGroupBasePlanner" type="argo_move_group::ArgoMoveGroupBasePlanner" base_class_type="move_group::MoveGroupCapability">
+    <description>
+      Plans the robot base position for a specific checkpoint.
+    </description>
+  </class>    
+
+</library>
