@@ -11,10 +11,6 @@ find_package(catkin REQUIRED COMPONENTS
   pluginlib
   moveit_ros_move_group
   argo_move_group_msgs
-  hector_simox_ros
-  grid_map_ros
-  grid_map_proc
-  cv_image_proc
 )
 
 ## System dependencies are found with CMake's conventions
@@ -22,6 +18,26 @@ find_package(Boost REQUIRED COMPONENTS system)
 
 find_package(Eigen REQUIRED)
 add_definitions(${EIGEN_DEFINITIONS})
+
+################################################
+## Declare ROS dynamic reconfigure parameters ##
+################################################
+
+## To declare and build dynamic reconfigure parameters within this
+## package, follow these steps:
+## * In the file package.xml:
+##   * add a build_depend and a run_depend tag for "dynamic_reconfigure"
+## * In this file (CMakeLists.txt):
+##   * add "dynamic_reconfigure" to
+##     find_package(catkin REQUIRED COMPONENTS ...)
+##   * uncomment the "generate_dynamic_reconfigure_options" section below
+##     and list every .cfg file to be processed
+
+## Generate dynamic reconfigure parameters in the 'cfg' folder
+# generate_dynamic_reconfigure_options(
+#   cfg/DynReconf1.cfg
+#   cfg/DynReconf2.cfg
+# )
 
 ###################################
 ## catkin specific configuration ##
@@ -33,11 +49,13 @@ add_definitions(${EIGEN_DEFINITIONS})
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES argo_move_group
-#  CATKIN_DEPENDS roscpp actionlib pluginlib moveit_ros_move_group argo_move_group_msgs hector_simox_ros grid_map_ros
+  INCLUDE_DIRS include
+  LIBRARIES argo_move_group
+  CATKIN_DEPENDS roscpp actionlib pluginlib moveit_ros_move_group argo_move_group_msgs
 #  DEPENDS system_lib
 )
+
+file(GLOB_RECURSE HEADER_FILES "include/*.h")
 
 ###########
 ## Build ##
@@ -55,9 +73,8 @@ include_directories(
 ## Declare a C++ library
 add_library(argo_move_group
   src/argo_move_group.cpp
-  src/camera_pose.cpp
-  src/workspace_grid.cpp
-)
+  ${HEADER_FILES}
+  )
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
