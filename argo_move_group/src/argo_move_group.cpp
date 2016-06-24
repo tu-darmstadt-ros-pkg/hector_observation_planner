@@ -582,7 +582,7 @@ void ArgoMoveGroupBasePlanner::readCheckpointParams()
     typedef std::map<std::string, u_int8_t> _type_map;
     _type_map types = {{"dial_gauge",ObjectTypes::DIAL_GAUGE}, {"hotspot",ObjectTypes::HOTSPOT},
                        {"level_gauge",ObjectTypes::LEVEL_GAUGE}, {"valve",ObjectTypes::VALVE},
-                       {"unknown",ObjectTypes::UNKNOWN}};
+                       {"unknown",ObjectTypes::UNKNOWN}, {"pipes",ObjectTypes::PIPES}};
     BOOST_FOREACH(_type_map::value_type t, types)
     {
         nh_combined_planner_.param(t.first+"/max_angle_diff/x_high", params.angle_x_high, (double)(30.0 * M_PI/180.0));
