@@ -7,3 +7,4 @@ uint8 LEVEL_GAUGE = 3
 uint8 VALVE = 4
 uint8 HEAT_SOURCE = 5
 uint8 OBSTACLE = 6
+uint8 PIPES = 7
