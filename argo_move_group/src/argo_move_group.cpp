@@ -29,7 +29,7 @@ ArgoMoveGroupBasePlanner::ArgoMoveGroupBasePlanner() :
     visibility.cone_sides = 8;
     visibility.sensor_pose.pose.position.x = 0.05;
     visibility.sensor_pose.pose.orientation.w = 1;
-    visibility.max_range_angle = M_PI * 5.0 / 180.0;
+    visibility.max_range_angle = M_PI * 90.0 / 180.0;
     visibility.sensor_view_direction = moveit_msgs::VisibilityConstraint::SENSOR_X;
     visibility.weight = 1.0;
     constraints_.visibility_constraints.push_back(visibility);
