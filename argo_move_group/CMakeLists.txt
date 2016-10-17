@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   hector_simox_ros
   grid_map_ros
   grid_map_proc
+  grid_map_cv
   cv_image_proc
 )
 

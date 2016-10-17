@@ -4,6 +4,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <eigen_conversions/eigen_msg.h>
 #include <grid_map_proc/grid_map_polygon_tools.h>
+#include <grid_map_cv/grid_map_cv.hpp>
 
 using namespace argo_move_group;
 using namespace grid_map;
@@ -271,11 +272,13 @@ WorkspaceGridMap::computeReachCostMap(const Vector2d &origin)
     }
 
     // get reachable area
-    cv::Mat occupancyMat;
-    GridMapRosConverter::toCvImage(map_, OCCUPANCY_LAYER, occupancyMat);
-
     cv::Mat occupancyMatMono;
-    cv::cvtColor(occupancyMat, occupancyMatMono, CV_BGRA2GRAY);
+    //GridMapRosConverter::toCvImage(map_, OCCUPANCY_LAYER, occupancyMat);
+    grid_map::GridMapCvConverter::toImage<unsigned char, 1>(map_, OCCUPANCY_LAYER, CV_8UC1, 0.0, 1.0, occupancyMatMono);
+
+
+    //cv::Mat occupancyMatMono;
+    //cv::cvtColor(occupancyMat, occupancyMatMono, CV_BGRA2GRAY);
 
     cv::Mat reachableMask = cv::Mat::zeros(occupancyMatMono.rows + 2, occupancyMatMono.cols + 2, CV_8U);
 
