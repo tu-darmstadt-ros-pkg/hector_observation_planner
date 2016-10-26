@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(argo_move_group)
-add_definitions(-std=gnu++11)
-## Find catkin macros and libraries
-## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
-## is used, also find other catkin packages
+
 find_package(catkin REQUIRED COMPONENTS
   cmake_modules
   roscpp
@@ -15,14 +12,15 @@ find_package(catkin REQUIRED COMPONENTS
   grid_map_ros
   grid_map_proc
   grid_map_cv
-  cv_image_proc
 )
 
 ## System dependencies are found with CMake's conventions
 find_package(Boost REQUIRED COMPONENTS system)
 
 find_package(Eigen REQUIRED)
+
 add_definitions(${EIGEN_DEFINITIONS})
+add_definitions(-std=gnu++11)
 
 ###################################
 ## catkin specific configuration ##
