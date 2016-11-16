@@ -78,6 +78,8 @@ private:
 
     WorkspaceGridMapPtr wsGridMap_;
 
+    Eigen::Affine3d target_;
+
 }; // class ArgoMoveGroupBasePlanner
 
 

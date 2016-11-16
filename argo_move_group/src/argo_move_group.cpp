@@ -89,9 +89,8 @@ void ArgoMoveGroupBasePlanner::combinedPlanActionCB(const ArgoCombinedPlanGoalCo
     result.success.val = ErrorCodes::FAILED;
 
     // get target pose in planning frame
-    Affine3d target;
     geometry_msgs::PoseStamped target_msg = request->target;
-    tf::poseMsgToEigen(target_msg.pose, target);
+    tf::poseMsgToEigen(target_msg.pose, target_);
     if (target_msg.header.frame_id[0] != '/')
     {
         target_msg.header.frame_id = "/" + target_msg.header.frame_id;
@@ -102,7 +101,7 @@ void ArgoMoveGroupBasePlanner::combinedPlanActionCB(const ArgoCombinedPlanGoalCo
         {
             ROS_INFO_STREAM("Transform target into planning frame: target-frame: " <<
                             target_msg.header.frame_id << " planning-frame: " << scene_->getPlanningFrame());
-            target = scene_->getFrameTransform(target_msg.header.frame_id) * target;
+            target_ = scene_->getFrameTransform(target_msg.header.frame_id) * target_;
             target_msg.header.frame_id = scene_->getPlanningFrame();
         }
         else
@@ -111,7 +110,7 @@ void ArgoMoveGroupBasePlanner::combinedPlanActionCB(const ArgoCombinedPlanGoalCo
             return;
         }
     }
-    tf::poseEigenToMsg(target, target_msg.pose);
+    tf::poseEigenToMsg(target_, target_msg.pose);
     dbgPosePub_.publish(target_msg);
 
     ROS_INFO_STREAM("Argo CombinedPlan Request received:" << " action: " << 0 + request->action_type.val << " object: " << request->object_id.data << " " << 0 + request->object_type.val << std::endl
@@ -138,8 +137,6 @@ void ArgoMoveGroupBasePlanner::combinedPlanActionCB(const ArgoCombinedPlanGoalCo
 
 void ArgoMoveGroupBasePlanner::armPlanRequestCB(const ArgoCombinedPlanGoalConstPtr &msg, ArgoCombinedPlanResult &result)
 {
-    Affine3d target;
-
     CheckpointParams params = getParams(msg->object_type.val, msg->object_id.data);
     ROS_INFO_STREAM("Use params: horiz: " << params.angle_x_high << " " << params.angle_x_low << " vert: " << params.angle_y_high << " " << params.angle_y_low <<
                     " dist: " << params.dist_min << " " << params.dist_max);
@@ -151,15 +148,13 @@ void ArgoMoveGroupBasePlanner::armPlanRequestCB(const ArgoCombinedPlanGoalConstP
     planning_scene_monitor::LockedPlanningSceneRW l_scene(context_->planning_scene_monitor_);
     ROS_INFO_STREAM("ArmPlanRequest received:");
 
-    // get target pose in planning frame
-    geometry_msgs::PoseStamped target_msg = msg->target;
-    tf::poseMsgToEigen(target_msg.pose, target);
-
     //sampleCameraPoses(target, params, 25, true);
-    sampleCameraPoses(target, params, 25, samples, &joint_positions);
+    sampleCameraPoses(target_, params, 25, samples, &joint_positions);
     if (!samples.size() && params.from_back)
     {
-        Affine3d mirrored = target * AngleAxisd(M_PI, Vector3d::UnitX());
+        Affine3d mirrored = target_ * AngleAxisd(M_PI, Vector3d::UnitX());
+
+        geometry_msgs::PoseStamped target_msg;
         tf::poseEigenToMsg(mirrored, target_msg.pose);
         dbgPosePub_.publish(target_msg);
 
