@@ -25,7 +25,7 @@ ArgoMoveGroupBasePlanner::ArgoMoveGroupBasePlanner() :
 
     // create the visibility constraint msg
     moveit_msgs::VisibilityConstraint visibility;
-    visibility.target_radius = 0.1;
+    visibility.target_radius = 0.05;
     visibility.cone_sides = 8;
     visibility.sensor_pose.pose.position.x = 0.05;
     visibility.sensor_pose.pose.orientation.w = 1;
