@@ -66,7 +66,7 @@ void ArgoMoveGroupBasePlanner::initialize()
                                  boost::bind(&ArgoMoveGroupBasePlanner::combinedPlanActionCB, this, _1), false) );
 
     // --- initialize data members
-    readCheckpointParams();
+    readObjectTypes();
     scene_ = context_->planning_scene_monitor_->getPlanningScene();
     constraints_.visibility_constraints.begin()->target_pose.header.frame_id = scene_->getPlanningFrame();
     nh_combined_planner_.param<std::string>("camera_frame", cam_frame_, "arm_zoom_cam_link");
@@ -113,7 +113,7 @@ void ArgoMoveGroupBasePlanner::combinedPlanActionCB(const ArgoCombinedPlanGoalCo
     tf::poseEigenToMsg(target_, target_msg.pose);
     dbgPosePub_.publish(target_msg);
 
-    ROS_INFO_STREAM("Argo CombinedPlan Request received:" << " action: " << 0 + request->action_type.val << " object: " << request->object_id.data << " " << 0 + request->object_type.val << std::endl
+    ROS_INFO_STREAM("Argo CombinedPlan Request received:" << " action: " << 0 + request->action_type.val << " object: " << request->object_id.data << " " << request->object_type.data << std::endl
                     << "   target p: (" << target_msg.pose.position.x << " " << target_msg.pose.position.y << " " << target_msg.pose.position.z << ")" << std::endl
                     << "          m: (" << target_msg.pose.orientation.x << " " << target_msg.pose.orientation.y << " " << target_msg.pose.orientation.z << " " << target_msg.pose.orientation.w << ")");
 
@@ -137,9 +137,7 @@ void ArgoMoveGroupBasePlanner::combinedPlanActionCB(const ArgoCombinedPlanGoalCo
 
 void ArgoMoveGroupBasePlanner::armPlanRequestCB(const ArgoCombinedPlanGoalConstPtr &msg, ArgoCombinedPlanResult &result)
 {
-    CheckpointParams params = getParams(msg->object_type.val, msg->object_id.data);
-    ROS_INFO_STREAM("Use params: horiz: " << params.angle_x_high << " " << params.angle_x_low << " vert: " << params.angle_y_high << " " << params.angle_y_low <<
-                    " dist: " << params.dist_min << " " << params.dist_max);
+    ObjectTypeParams params = getParams(msg->object_type.data, msg->object_id.data);
 
     std::vector<Affine3d> samples;
     std::vector< boost::shared_array<double> > joint_positions;
@@ -240,7 +238,7 @@ void ArgoMoveGroupBasePlanner::basePlanRequestCB(const ArgoCombinedPlanGoalConst
     tf::poseMsgToEigen(request->target.pose, target);
 
     // get params for current checkpoint
-    CheckpointParams params = getParams(request->object_type.val, request->object_id.data);
+    ObjectTypeParams params = getParams(request->object_type.data, request->object_id.data);
 
     // sample camera poses
     { // planning scene lock only for sampling
@@ -276,7 +274,7 @@ void ArgoMoveGroupBasePlanner::basePlanRequestCB(const ArgoCombinedPlanGoalConst
 
 /*--- private functions ---*/
 
-bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, CheckpointParams &params, size_t max_num_samples, bool do_ik, ros::Duration max_time)
+bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectTypeParams &params, size_t max_num_samples, bool do_ik, ros::Duration max_time)
 {
     samples_.clear();
 
@@ -380,7 +378,7 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, Checkpo
 }
 
 
-bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, const CheckpointParams &params,
+bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, const ObjectTypeParams &params,
                                                  size_t max_num_samples, std::vector<Affine3d> &samples,
                                                  std::vector<boost::shared_array<double> > *joint_positions, ros::Duration timeout)
 {
@@ -398,6 +396,7 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, const C
     moveit::core::RobotState state(scene->getCurrentState());
     // TODO: set camera link in visibility constraint.
     tf::poseEigenToMsg(target, constraints_.visibility_constraints.begin()->target_pose.pose);
+    constraints_.visibility_constraints.begin()->target_radius = params.radius;
     kinematics::KinematicsQueryOptions opt;
 
     ros::Time _timeout = ros::Time::now() + timeout;
@@ -560,53 +559,79 @@ bool ArgoMoveGroupBasePlanner::planUsingPlanningPipeline(const planning_interfac
   return solved;
 }
 
-void ArgoMoveGroupBasePlanner::readCheckpointParams()
+void ArgoMoveGroupBasePlanner::readObjectTypes()
 {
-    CheckpointParams params;
+    ObjectTypeParams params;
     // default params
-    params.angle_x_high = 30.0 * M_PI/180.0;
-    params.angle_x_low = -30.0 * M_PI/180.0;
-    params.angle_y_high = 30.0 * M_PI/180.0;
-    params.angle_y_low = -30.0 * M_PI/180.0;
-    params.dist_min = 0.5;
-    params.dist_max = 3.5;
-    params.from_back = false;
-    params.group = "arm_group";
-    checkpoint_parms_[DEFAULT_OBJECT_TYPE] = params;
+    params.radius = 0.1;
+    params.angle_x_high = M_PI_2;
+    params.angle_x_low = -M_PI_2;
+    params.angle_y_high = M_PI_2;
+    params.angle_y_low = -M_PI_2;
+    params.dist_min = 0.25;
+    params.dist_max = 10.0;
+    params.from_back = true;
+    params.group = "arm_with_head_group";
+    object_type_parms_[DEFAULT_OBJECT_TYPE] = params;
 
-    typedef std::map<std::string, u_int8_t> _type_map;
-    _type_map types = {{"dial_gauge",ObjectTypes::DIAL_GAUGE}, {"hotspot",ObjectTypes::HOTSPOT},
-                       {"level_gauge",ObjectTypes::LEVEL_GAUGE}, {"valve",ObjectTypes::VALVE},
-                       {"unknown",ObjectTypes::UNKNOWN}, {"pipes",ObjectTypes::PIPES}, {"victim",ObjectTypes::VICTIM}};
-    BOOST_FOREACH(_type_map::value_type t, types)
+    ROS_INFO("%s: {r: %.3f x: %.3f %.3f y: %.3f %.3f d: %.3f %.3f b: %d %s}",
+             DEFAULT_OBJECT_TYPE.c_str(), params.radius,
+             params.angle_x_high, params.angle_x_low, params.angle_y_high, params.angle_y_low,
+             params.dist_min, params.dist_max, params.from_back, params.group.c_str());
+
+    XmlRpc::XmlRpcValue objectTypes;
+    nh_combined_planner_.getParam("object_types", objectTypes);
+    ROS_ASSERT(objectTypes.getType() == XmlRpc::XmlRpcValue::TypeArray)
+
+    for (int i = 0; i < objectTypes.size(); i++)
     {
-        nh_combined_planner_.param(t.first+"/max_angle_diff/x_high", params.angle_x_high, (double)(30.0 * M_PI/180.0));
-        nh_combined_planner_.param(t.first+"/max_angle_diff/x_low", params.angle_x_low, (double)(30.0 * M_PI/180.0));
-        nh_combined_planner_.param(t.first+"/max_angle_diff/y_high", params.angle_y_high, (double)(30.0 * M_PI/180.0));
-        nh_combined_planner_.param(t.first+"/max_angle_diff/y_low", params.angle_y_low, (double)(30.0 * M_PI/180.0));
-        nh_combined_planner_.param(t.first+"/min_dist", params.dist_min, 0.5);
-        nh_combined_planner_.param(t.first+"/max_dist", params.dist_max, 3.5);
-        nh_combined_planner_.param(t.first+"/from_back", params.from_back, false);
-        nh_combined_planner_.param(t.first+"/joint_group", params.group, std::string("arm_group"));
-        ROS_INFO_STREAM(t.first << " " << params.angle_x_high << " " << params.from_back << " " << params.group);
-        checkpoint_parms_[t.second] = params;
+        XmlRpc::XmlRpcValue& t = objectTypes[i];
+
+        if (!t.hasMember("name")) continue;
+
+        if (t.hasMember("radius")) params.radius = (double)t["radius"];
+        if (t.hasMember("angle_x_high")) params.angle_x_high = (double)t["angle_x_high"];
+        if (t.hasMember("angle_x_low")) params.angle_x_low = (double)t["angle_x_low"];
+        if (t.hasMember("angle_y_high")) params.angle_y_high = (double)t["angle_y_high"];
+        if (t.hasMember("angle_y_low")) params.angle_y_low = (double)t["angle_y_low"];
+        if (t.hasMember("dist_min")) params.dist_min = (double)t["dist_min"];
+        if (t.hasMember("dist_max")) params.dist_max = (double)t["dist_max"];
+        if (t.hasMember("from_back")) params.from_back = (bool)t["from_back"];
+        if (t.hasMember("joint_group")) params.group = std::string(t["joint_group"]);
+
+        ROS_INFO("%s: {r: %.3f x: %.3f %.3f y: %.3f %.3f d: %.3f %.3f b: %d %s}",
+                 std::string(t["name"]).c_str(), params.radius,
+                 params.angle_x_high, params.angle_x_low, params.angle_y_high, params.angle_y_low,
+                 params.dist_min, params.dist_max, params.from_back, params.group.c_str());
+
+        object_type_parms_[std::string(t["name"])] = params;
+        params = object_type_parms_[DEFAULT_OBJECT_TYPE];
     }
 }
 
-CheckpointParams ArgoMoveGroupBasePlanner::getParams(u_int8_t object_type, std::string object_id)
+ObjectTypeParams ArgoMoveGroupBasePlanner::getParams(std::string object_type, std::string object_id)
 {
     // get Checkpoint Type default parameters
-    CheckpointParamsMap::iterator params_it = checkpoint_parms_.find(object_type);
-    if (params_it == checkpoint_parms_.end())
+    auto params_it = object_type_parms_.find(object_type);
+    if (params_it == object_type_parms_.end())
     {
-        ROS_WARN_STREAM("Unknown object type " << (int)(object_type) << "! Using default params.");
-        params_it = checkpoint_parms_.find(DEFAULT_OBJECT_TYPE);
+        ROS_WARN_STREAM("Unknown object type \"" << object_type << "\"! Using default params.");
+        params_it = object_type_parms_.find(DEFAULT_OBJECT_TYPE);
     }
-    CheckpointParams params = params_it->second;
+    ObjectTypeParams params = params_it->second;
 
     ros::NodeHandle nh("/object_tracker/objects");
 
     // get overrieds for current checkoint
+    if (nh.hasParam(object_id + "/dial_properties/diameter"))
+    {
+        nh.param(object_id + "/dial_properties/diameter", params.radius, params.radius);
+        params.radius *= 0.75;
+    }
+    if (nh.hasParam(object_id + "/view_params/radius"))
+    {
+        nh.param(object_id + "/view_params/radius", params.radius, params.radius);
+    }
     if (nh.hasParam(object_id + "/view_params/x_high"))
     {
         nh.param(object_id + "/view_params/x_high", params.angle_x_high, params.angle_x_high);
@@ -642,6 +667,12 @@ CheckpointParams ArgoMoveGroupBasePlanner::getParams(u_int8_t object_type, std::
     {
         nh.param(object_id + "/view_params/joint_group", params.group, params.group);
     }
+
+    ROS_INFO("%s %s: {r: %.3f x: %.3f %.3f y: %.3f %.3f d: %.3f %.3f b: %d %s}",
+             object_id.c_str(), object_type.c_str(), params.radius,
+             params.angle_x_high, params.angle_x_low, params.angle_y_high, params.angle_y_low,
+             params.dist_min, params.dist_max, params.from_back, params.group.c_str());
+
 
     return params;
 }

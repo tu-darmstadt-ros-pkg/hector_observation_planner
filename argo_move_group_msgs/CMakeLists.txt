@@ -40,7 +40,6 @@ add_message_files(
   FILES
   ActionCodes.msg
   ErrorCodes.msg
-  ObjectTypes.msg
 )
 
 ## Generate services in the 'srv' folder

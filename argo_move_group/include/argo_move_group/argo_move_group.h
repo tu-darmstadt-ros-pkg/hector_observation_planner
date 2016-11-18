@@ -34,8 +34,8 @@ private:
 
     // --- functions ---
 
-    bool sampleCameraPoses(const Eigen::Affine3d &target, CheckpointParams &params, size_t max_num_samples, bool do_ik = true, ros::Duration max_time = ros::Duration(5.0));
-    bool sampleCameraPoses(const Eigen::Affine3d &target, const CheckpointParams &params,
+    bool sampleCameraPoses(const Eigen::Affine3d &target, ObjectTypeParams &params, size_t max_num_samples, bool do_ik = true, ros::Duration max_time = ros::Duration(5.0));
+    bool sampleCameraPoses(const Eigen::Affine3d &target, const ObjectTypeParams &params,
                            size_t max_num_samples, std::vector<Eigen::Affine3d> &samples,
                            std::vector< boost::shared_array<double> > *joint_positions, ros::Duration timeout = ros::Duration(5.0));
 
@@ -48,8 +48,8 @@ private:
     bool planUsingPlanningPipeline(const planning_interface::MotionPlanRequest &req,
                                    plan_execution::ExecutableMotionPlan &plan);
 
-    void readCheckpointParams();
-    CheckpointParams getParams(u_int8_t object_type, std::string object_id);
+    void readObjectTypes();
+    ObjectTypeParams getParams(std::string object_type, std::string object_id);
 
     // --- class member variables ---
     ros::NodeHandle nh_combined_planner_;
@@ -74,7 +74,7 @@ private:
     visualization_msgs::Marker marker_;
 
     std::string cam_frame_;
-    CheckpointParamsMap checkpoint_parms_;
+    ObjectTypeParamsMap object_type_parms_;
 
     WorkspaceGridMapPtr wsGridMap_;
 

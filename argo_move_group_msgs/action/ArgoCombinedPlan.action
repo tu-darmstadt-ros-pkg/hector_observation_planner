@@ -1,6 +1,6 @@
 # REQUEST
 std_msgs/String object_id
-ObjectTypes object_type
+std_msgs/String object_type
 ActionCodes action_type
 float64 base_yaw
 geometry_msgs/PoseStamped target

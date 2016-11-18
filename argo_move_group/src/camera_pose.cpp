@@ -7,7 +7,7 @@
 using namespace argo_move_group;
 using namespace Eigen;
 
-CameraPose::CameraPose(const Affine3d &target, double aX, double aY, double dist, const CheckpointParams &params) :
+CameraPose::CameraPose(const Affine3d &target, double aX, double aY, double dist, const ObjectTypeParams &params) :
     Affine3d(target *                                 // goto target pose
              AngleAxisd(aY, Vector3d::UnitY()) *      // second rotation about fixed Y-Axis
              AngleAxisd(aX, Vector3d::UnitX()) *      // first rotation about fixed X-Axis
@@ -33,7 +33,7 @@ void CameraPose::setJointValues(boost::shared_array<double> &jointValues)
 
 
 
-void CameraPose::computeValue(const CheckpointParams &params)
+void CameraPose::computeValue(const ObjectTypeParams &params)
 {
 //    value_ = std::sqrt(std::cos(angle_horizontal) * std::cos(angle_horizontal) +
 //                       std::cos(angle_vertical) * std::cos(angle_vertical));

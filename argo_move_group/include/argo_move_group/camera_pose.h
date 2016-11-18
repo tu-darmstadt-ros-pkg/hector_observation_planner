@@ -10,8 +10,9 @@
 namespace argo_move_group
 {
 
-struct CheckpointParams
+struct ObjectTypeParams
 {
+    double radius;
     double angle_x_high;
     double angle_x_low;
     double angle_y_high;
@@ -22,13 +23,13 @@ struct CheckpointParams
     std::string group;
 };
 
-const u_int8_t DEFAULT_OBJECT_TYPE = 255;
-typedef std::map<u_int8_t, CheckpointParams> CheckpointParamsMap;
+const std::string DEFAULT_OBJECT_TYPE = "default";
+typedef std::map<std::string, ObjectTypeParams> ObjectTypeParamsMap;
 
 class CameraPose : public Eigen::Affine3d
 {
 public:
-    CameraPose(const Eigen::Affine3d &target, double aX, double aY, double dist, const CheckpointParams &params);
+    CameraPose(const Eigen::Affine3d &target, double aX, double aY, double dist, const ObjectTypeParams &params);
     virtual ~CameraPose() {}
 
     inline double getValue() const {return value_;}
@@ -42,7 +43,7 @@ public:
     inline double getAngleY() const {return angleY_;}
 
 private:
-    void computeValue(const CheckpointParams &params);
+    void computeValue(const ObjectTypeParams &params);
 
 private:
     double value_;
