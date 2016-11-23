@@ -127,6 +127,10 @@ void ArgoMoveGroupBasePlanner::combinedPlanActionCB(const ArgoCombinedPlanGoalCo
         armPlanRequestCB(request, result);
         break;
 
+    case ActionCodes::MOVE_ARM:
+        armMoveRequestCB(request, result);
+        break;
+
     default:
         break;
     }
@@ -153,6 +157,14 @@ void ArgoMoveGroupBasePlanner::armPlanRequestCB(const ArgoCombinedPlanGoalConstP
         return;
     }
 
+    armMoveRequestCB(msg, result);
+}
+
+void ArgoMoveGroupBasePlanner::armMoveRequestCB(const ArgoCombinedPlanGoalConstPtr &msg, ArgoCombinedPlanResult &result)
+{
+    // get params for current checkpoint
+    ObjectTypeParams params = getParams(msg->object_type.data, msg->object_id.data);
+
     // create motion plan request
     planning_interface::MotionPlanRequest plan_req;
     plan_req.group_name = params.group;
@@ -162,19 +174,18 @@ void ArgoMoveGroupBasePlanner::armPlanRequestCB(const ArgoCombinedPlanGoalConstP
     joint.tolerance_below = 0.01;
     joint.weight = 1.0;
 
-    for(auto& s : samples_)
+    auto& s = samples_.back();
+    ROS_INFO("%f", s.getValue());
+    for(auto &q : s.getJointValues())
     {
-        ROS_INFO("%f", s.getValue());
-        for(auto &q : s.getJointValues())
-        {
-            joint.joint_name = q.first;
-            joint.position = q.second;
-            constraints_.joint_constraints.push_back(joint);
-        }
-        //ROS_INFO_STREAM(ss.str());
-        plan_req.goal_constraints.push_back(constraints_);
-        constraints_.joint_constraints.clear();
+        joint.joint_name = q.first;
+        joint.position = q.second;
+        constraints_.joint_constraints.push_back(joint);
     }
+    //ROS_INFO_STREAM(ss.str());
+    plan_req.goal_constraints.push_back(constraints_);
+    constraints_.joint_constraints.clear();
+    samples_.pop_back();
 
     // initialize motion planner
     plan_execution::ExecutableMotionPlan plan;
@@ -209,7 +220,6 @@ void ArgoMoveGroupBasePlanner::armPlanRequestCB(const ArgoCombinedPlanGoalConstP
         break;
     }
 }
-
 
 void ArgoMoveGroupBasePlanner::basePlanRequestCB(const ArgoCombinedPlanGoalConstPtr &request, ArgoCombinedPlanResult &result)
 {
