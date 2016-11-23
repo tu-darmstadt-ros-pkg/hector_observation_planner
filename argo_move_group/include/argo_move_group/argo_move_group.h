@@ -35,9 +35,6 @@ private:
     // --- functions ---
 
     bool sampleCameraPoses(const Eigen::Affine3d &target, ObjectTypeParams &params, size_t max_num_samples, bool do_ik = true, ros::Duration max_time = ros::Duration(5.0));
-    bool sampleCameraPoses(const Eigen::Affine3d &target, const ObjectTypeParams &params,
-                           size_t max_num_samples, std::vector<Eigen::Affine3d> &samples,
-                           std::vector< boost::shared_array<double> > *joint_positions, ros::Duration timeout = ros::Duration(5.0));
 
     bool stateCheckerFN(moveit::core::RobotState *robot_state, const moveit::core::JointModelGroup *joint_group, const double *joint_group_variable_values);
 

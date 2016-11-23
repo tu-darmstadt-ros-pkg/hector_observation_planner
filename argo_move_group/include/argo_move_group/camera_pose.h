@@ -1,7 +1,6 @@
 #ifndef CAMERA_POSE_H_
 #define CAMERA_POSE_H_
 
-#include <boost/shared_array.hpp>
 #include <boost/shared_ptr.hpp>
 #include <map>
 
@@ -35,8 +34,10 @@ public:
     inline double getValue() const {return value_;}
     inline void setValue(double value) {value_ = value;}
 
-    boost::shared_array<double> getJointValues();
-    void setJointValues(boost::shared_array<double> &jointValues);
+    double getJointValue(std::string k){return jointValues_[k];}
+    void addJointValue(std::string k, double v){jointValues_[k] = v;}
+    const std::map<std::string, double>& getJointValues() {return jointValues_;}
+
 
     inline double getDist() const {return dist_;}
     inline double getAngleX() const {return angleX_;}
@@ -54,7 +55,7 @@ private:
     double angleY_;
 
     // IK solution
-    boost::shared_array<double> jointValues_;
+    std::map<std::string, double> jointValues_;
 };
 
 typedef boost::shared_ptr<CameraPose> CameraPosePtr;

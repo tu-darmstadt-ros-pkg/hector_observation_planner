@@ -25,7 +25,6 @@ ArgoMoveGroupBasePlanner::ArgoMoveGroupBasePlanner() :
 
     // create the visibility constraint msg
     moveit_msgs::VisibilityConstraint visibility;
-    visibility.target_radius = 0.05;
     visibility.cone_sides = 8;
     visibility.sensor_pose.pose.position.x = 0.05;
     visibility.sensor_pose.pose.orientation.w = 1;
@@ -137,32 +136,18 @@ void ArgoMoveGroupBasePlanner::combinedPlanActionCB(const ArgoCombinedPlanGoalCo
 
 void ArgoMoveGroupBasePlanner::armPlanRequestCB(const ArgoCombinedPlanGoalConstPtr &msg, ArgoCombinedPlanResult &result)
 {
+    ROS_INFO_STREAM("ArmPlanRequest received:");
     ObjectTypeParams params = getParams(msg->object_type.data, msg->object_id.data);
-
-    std::vector<Affine3d> samples;
-    std::vector< boost::shared_array<double> > joint_positions;
 
     { // Begin planning lock
     planning_scene_monitor::LockedPlanningSceneRW l_scene(context_->planning_scene_monitor_);
-    ROS_INFO_STREAM("ArmPlanRequest received:");
 
-    //sampleCameraPoses(target, params, 25, true);
-    sampleCameraPoses(target_, params, 25, samples, &joint_positions);
-    if (!samples.size() && params.from_back)
-    {
-        Affine3d mirrored = target_ * AngleAxisd(M_PI, Vector3d::UnitX());
-
-        geometry_msgs::PoseStamped target_msg;
-        tf::poseEigenToMsg(mirrored, target_msg.pose);
-        dbgPosePub_.publish(target_msg);
-
-        sampleCameraPoses(mirrored, params, 25, samples, &joint_positions);
-    }
+    sampleCameraPoses(target_, params, 25, true);
 
     ROS_INFO("End of planning part");
     } // End  planning lock
 
-    if (!samples.size())
+    if (!samples_.size())
     {
         result.success.val = ErrorCodes::SAMPLING_FAILED;
         return;
@@ -177,17 +162,14 @@ void ArgoMoveGroupBasePlanner::armPlanRequestCB(const ArgoCombinedPlanGoalConstP
     joint.tolerance_below = 0.01;
     joint.weight = 1.0;
 
-    const std::vector<std::string> &joint_names = scene_->getCurrentState().getJointModelGroup(params.group)->getActiveJointModelNames();
-    BOOST_FOREACH(boost::shared_array<double> & q, joint_positions)
+    for(auto& s : samples_)
     {
-        //std::stringstream ss;
-        //ss << "q: ";
-        for(int i = 0; i < joint_names.size(); i++)
+        ROS_INFO("%f", s.getValue());
+        for(auto &q : s.getJointValues())
         {
-            joint.position = q[i];
-            joint.joint_name = joint_names[i];
+            joint.joint_name = q.first;
+            joint.position = q.second;
             constraints_.joint_constraints.push_back(joint);
-            //ss << q[i] << "; ";
         }
         //ROS_INFO_STREAM(ss.str());
         plan_req.goal_constraints.push_back(constraints_);
@@ -233,17 +215,13 @@ void ArgoMoveGroupBasePlanner::basePlanRequestCB(const ArgoCombinedPlanGoalConst
 {
     ROS_INFO("basePlanRequest received: yaw %f", request->base_yaw);
 
-    // get target pose in planning frame
-    Affine3d target;
-    tf::poseMsgToEigen(request->target.pose, target);
-
     // get params for current checkpoint
     ObjectTypeParams params = getParams(request->object_type.data, request->object_id.data);
 
     // sample camera poses
     { // planning scene lock only for sampling
         planning_scene_monitor::LockedPlanningSceneRO lScene(context_->planning_scene_monitor_);
-        sampleCameraPoses(target, params, 1000, false);
+        sampleCameraPoses(target_, params, 1000, false);
     }
 
     // compute reachable area for current robot base pose
@@ -332,32 +310,30 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
                 // move target few cm ahead and set this position as target for visibility constraint
                 tf::poseEigenToMsg(_target * Translation3d(Vector3d(0,0,octree->getResolution()*1.5)),
                                    constraints_.visibility_constraints.begin()->target_pose.pose);
+                //tf::poseEigenToMsg(_target, constraints_.visibility_constraints.begin()->target_pose.pose);
+                constraints_.visibility_constraints.begin()->target_radius = params.radius;
                 if (state.setFromIK(state.getJointModelGroup(params.group), cp, 0, 0.005, stateCheckerCB, opt))
                 {
                     //store joint positions for this solution
-                    const std::vector<std::string> &joints = state.getJointModelGroup(params.group)->getActiveJointModelNames();
-                    boost::shared_array<double> positions(new double[joints.size()]);
-                    double *p = positions.get();
-                    for (std::vector<std::string>::const_iterator i = joints.begin(); i != joints.end(); i++, p++)
+                    const std::vector<std::string> &names = state.getJointModelGroup(params.group)->getActiveJointModelNames();
+                    for (auto &n : names)
                     {
-                        *p = *state.getJointPositions(*i);
+                        cp.addJointValue(n, state.getVariablePosition(n));
                     }
-                    // add sample and IK solution
-                    cp.setJointValues(positions);
+                    double d = state.distance(scene_->getCurrentState());
+                    double v = 1.0 - (std::min(names.size()*M_PI, d) / (names.size()*M_PI));
+                    cp.setValue(cp.getValue()*v*v);
+                    //ROS_INFO("N %d CP v: %.3f d: %.3f %.3f", names.size(), cp.getValue(), d, v);
+                    // add sample
                     samples_.push_back(cp);
                     add_cp = true;
                 }
             }
             else
             {
-//                grid_map::Position p(cp.translation()[0], cp.translation()[1]);
-//                if ( map_.isInside(p) &&
-//                    (map_.atPosition("occupancy", p) < 65.0) )
-                {
-                    //ROS_INFO_STREAM("P " << p[0] << " " << p[1] << ": " << map_.atPosition("occupancy", p));
-                    samples_.push_back(cp);
-                    add_cp = true;
-                }
+                //ROS_INFO_STREAM("P " << p[0] << " " << p[1] << ": " << map_.atPosition("occupancy", p));
+                samples_.push_back(cp);
+                add_cp = true;
             }
 
             if (add_cp && cameraPoseesPub_.getNumSubscribers())
@@ -370,108 +346,14 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
     } // END LOOP
     ROS_INFO_STREAM("Generated " << samples_.size() << " samples in " << ros::Time::now() - timeout + max_time << "seconds.");
 
+    // sort best samples at the end of the vector
+    std::sort(samples_.begin(), samples_.end(), [](const CameraPose& a, const CameraPose& b){return a.getValue() < b.getValue();});
+
     if (cameraPoseesPub_.getNumSubscribers() && posesMsg.poses.size())
     {
         posesMsg.header.frame_id = scene_->getPlanningFrame();
         cameraPoseesPub_.publish(posesMsg);
     }
-}
-
-
-bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, const ObjectTypeParams &params,
-                                                 size_t max_num_samples, std::vector<Affine3d> &samples,
-                                                 std::vector<boost::shared_array<double> > *joint_positions, ros::Duration timeout)
-{
-    planning_scene::PlanningScenePtr scene = context_->planning_scene_monitor_->getPlanningScene();
-
-    // get octomap
-    collision_detection::World::ObjectConstPtr octomap =scene->getWorld()->getObject(planning_scene::PlanningScene::OCTOMAP_NS);
-    if (octomap == NULL)
-    {
-        ROS_ERROR_STREAM("Octomap object could not be retrieved from planning scene.");
-        return false;
-    }
-    boost::shared_ptr<const octomap::OcTree> octree(dynamic_cast<const shapes::OcTree *>(octomap->shapes_[0].get())->octree);
-
-    moveit::core::RobotState state(scene->getCurrentState());
-    // TODO: set camera link in visibility constraint.
-    tf::poseEigenToMsg(target, constraints_.visibility_constraints.begin()->target_pose.pose);
-    constraints_.visibility_constraints.begin()->target_radius = params.radius;
-    kinematics::KinematicsQueryOptions opt;
-
-    ros::Time _timeout = ros::Time::now() + timeout;
-    while (samples.size() < max_num_samples && ros::Time::now() < _timeout)
-    {
-        // generate random sample
-        double dist = rand_.uniformReal(params.dist_min, params.dist_max);
-        double angle_horizontal = rand_.uniformReal(params.angle_x_low, params.angle_x_high);
-        double angle_vertical = rand_.uniformReal(params.angle_y_low, params.angle_y_high);
-
-        // compute camera position from sample
-        Affine3d sample_pose = target *
-                AngleAxisd(angle_horizontal, Vector3d::UnitX()) *
-                AngleAxisd(angle_vertical, Vector3d::UnitY()) *
-                Translation3d(Vector3d(0,0,dist)) *
-                AngleAxisd(M_PI, Vector3d::UnitX()) *
-                AngleAxisd(-M_PI_2, Vector3d::UnitY());
-        opt.return_approximate_solution = true;
-
-        // coarse check for visibility
-        if (castRay(octree, sample_pose.translation(), target.translation()))
-        {
-            state = scene->getCurrentState();
-            // fine check for IK solution with collision and visibility constraints
-            if (state.setFromIK(state.getJointModelGroup(params.group), sample_pose, 0, 0.005, stateCheckerCB, opt))
-            {
-                // rate this sample
-//                double a = std::sqrt(std::cos(angle_horizontal) * std::cos(angle_horizontal) +
-//                                     std::cos(angle_vertical) * std::cos(angle_vertical));
-                double a = std::fabs(angle_horizontal) / std::max(std::fabs(params.angle_x_high), std::fabs(params.angle_x_low)) +
-                        std::fabs(angle_vertical) / std::max(std::fabs(params.angle_y_high), std::fabs(params.angle_y_low));
-                double d_j = state.distance(scene->getCurrentState());
-                double d_c = scene->distanceToCollision(state);
-//                double value = (2 - a) * d_j;
-                double value = a * d_j;
-
-                ROS_INFO_STREAM("Angle: " << a << " Distance Joints: " << d_j << " Distance Collision: " << d_c << " => " << value);
-
-                // add valid camera pose to samples
-                samples.push_back(sample_pose);
-                // add debug marker to message
-                geometry_msgs::Point tmp;
-                tf::pointEigenToMsg(sample_pose.translation(), tmp);
-                marker_.points.push_back(tmp);
-                std_msgs::ColorRGBA col;
-                col.a = 1.0;
-                col.r = std::max(0.0, (15.0 - value)) / 15.0;
-                marker_.colors.push_back(col);
-
-
-                // add IK solution to output if requested
-                if (joint_positions)
-                {
-                    //store joint positions for this solution
-                    const std::vector<std::string> &joints = state.getJointModelGroup(params.group)->getActiveJointModelNames();
-                    boost::shared_array<double> positions(new double[joints.size()]);
-                    double *p = positions.get();
-                    for (std::vector<std::string>::const_iterator i = joints.begin(); i != joints.end(); i++, p++)
-                    {
-                        *p = *state.getJointPositions(*i);
-                    }
-                    joint_positions->push_back(positions);
-                }
-            }
-        }
-    } // END sampling loop
-
-    ROS_INFO_STREAM("Computed " << samples.size() << " samples in " << ros::Time::now() - _timeout + timeout << "seconds.");
-
-    // send debug markers message
-    dbgMarkerPub_.publish(marker_);
-    marker_.points.clear();
-    marker_.colors.clear();
-
-    return !samples.empty();
 }
 
 bool ArgoMoveGroupBasePlanner::stateCheckerFN(moveit::core::RobotState *robot_state, const moveit::core::JointModelGroup *joint_group, const double *joint_group_variable_values)
@@ -527,7 +409,7 @@ bool ArgoMoveGroupBasePlanner::castRay(const boost::shared_ptr<const octomap::Oc
 //    std::cout << "tgt:" << tgt.x() << " " << tgt.y() << " " << tgt.z() << std::endl;
 //    std::cout << "dir:" << dir.x() << " " << dir.y() << " " << dir.z() << std::endl;
 
-    return !octree->castRay(ori, dir, tgt, true, dir.norm() - 0.1);
+    return !octree->castRay(ori, dir, tgt, true, dir.norm() - octree->getResolution());
 }
 
 bool ArgoMoveGroupBasePlanner::planUsingPlanningPipeline(const planning_interface::MotionPlanRequest &req, plan_execution::ExecutableMotionPlan &plan)

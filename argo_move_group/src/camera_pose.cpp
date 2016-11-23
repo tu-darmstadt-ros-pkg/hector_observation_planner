@@ -21,18 +21,6 @@ CameraPose::CameraPose(const Affine3d &target, double aX, double aY, double dist
     computeValue(params);
 }
 
-boost::shared_array<double> CameraPose::getJointValues()
-{
-    return jointValues_;
-}
-
-void CameraPose::setJointValues(boost::shared_array<double> &jointValues)
-{
-    jointValues_ = jointValues;
-}
-
-
-
 void CameraPose::computeValue(const ObjectTypeParams &params)
 {
 //    value_ = std::sqrt(std::cos(angle_horizontal) * std::cos(angle_horizontal) +
