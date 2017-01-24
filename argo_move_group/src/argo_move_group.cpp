@@ -159,7 +159,7 @@ void ArgoMoveGroupBasePlanner::armPlanRequestCB(const ArgoCombinedPlanGoalConstP
         sampleCameraPoses(mirrored, params, 25, samples, &joint_positions);
     }
 
-    ROS_INFO("End of planning part");
+    ROS_INFO("End of pose sampling part");
     } // End  planning lock
 
     if (!samples.size())
@@ -399,7 +399,15 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, const O
     constraints_.visibility_constraints.begin()->target_radius = params.radius;
     kinematics::KinematicsQueryOptions opt;
 
+    const moveit::core::JointModelGroup* group = state.getJointModelGroup(params.group);
+    const std::vector<std::string> link_names = group->getLinkModelNames();
+
+    Eigen::Affine3d group_root_link_transform = state.getGlobalLinkTransform(link_names[0]);
+
     ros::Time _timeout = ros::Time::now() + timeout;
+
+    int num_root_distance_rejects = 0;
+
     while (samples.size() < max_num_samples && ros::Time::now() < _timeout)
     {
         // generate random sample
@@ -415,6 +423,14 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, const O
                 AngleAxisd(M_PI, Vector3d::UnitX()) *
                 AngleAxisd(-M_PI_2, Vector3d::UnitY());
         opt.return_approximate_solution = true;
+
+        double distance_from_group_root = (sample_pose.translation() - group_root_link_transform.translation()).norm();
+
+        if (distance_from_group_root > 1.4)
+        {
+          ++num_root_distance_rejects;
+          continue;
+        }
 
         // coarse check for visibility
         if (castRay(octree, sample_pose.translation(), target.translation()))
@@ -464,7 +480,7 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, const O
         }
     } // END sampling loop
 
-    ROS_INFO_STREAM("Computed " << samples.size() << " samples in " << ros::Time::now() - _timeout + timeout << "seconds.");
+    ROS_INFO_STREAM("Computed " << samples.size() << " samples in " << ros::Time::now() - _timeout + timeout << "seconds. Rejected " << num_root_distance_rejects << " dist from root link exceed samples");
 
     // send debug markers message
     dbgMarkerPub_.publish(marker_);
