@@ -29,13 +29,14 @@ private:
 
     void dynamicMapCB(const nav_msgs::OccupancyGrid &msg);
 
+    void sampleOnlyCB(const ObjectTypeParams &params, argo_move_group_msgs::ArgoCombinedPlanResult &result);
     void armPlanRequestCB(const ObjectTypeParams &params, argo_move_group_msgs::ArgoCombinedPlanResult &result);
     void armMoveRequestCB(const ObjectTypeParams &params, argo_move_group_msgs::ArgoCombinedPlanResult &result);
     void basePlanRequestCB(const argo_move_group_msgs::ArgoCombinedPlanGoalConstPtr &request, argo_move_group_msgs::ArgoCombinedPlanResult &result);
 
     // --- functions ---
 
-    bool sampleCameraPoses(const Eigen::Affine3d &target, ObjectTypeParams &params, size_t max_num_samples, bool do_ik = true, ros::Duration max_time = ros::Duration(5.0));
+    bool sampleCameraPoses(const Eigen::Affine3d &target, ObjectTypeParams params, size_t max_num_samples, bool do_ik = true, ros::Duration max_time = ros::Duration(5.0));
 
     bool stateCheckerFN(moveit::core::RobotState *robot_state, const moveit::core::JointModelGroup *joint_group, const double *joint_group_variable_values);
 
@@ -56,6 +57,7 @@ private:
     ros::Publisher cameraPoseesPub_;
     ros::Publisher dbgPosePub_;
     ros::Publisher dbgMarkerPub_;
+    ros::Publisher jointStatePub_;
 
     ros::Subscriber dynamicMapSub_;
 

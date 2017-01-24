@@ -13,6 +13,8 @@
 #include <octomap_ros/conversions.h>
 #include <random_numbers/random_numbers.h>
 #include <argo_move_group/tf_octomap_eigen.h>
+#include <sensor_msgs/JointState.h>
+
 
 using namespace argo_move_group;
 using namespace argo_move_group_msgs;
@@ -60,6 +62,7 @@ void ArgoMoveGroupBasePlanner::initialize()
     cameraPoseesPub_ = nh_combined_planner_.advertise<geometry_msgs::PoseArray>("camera_poses", 0);
     dbgPosePub_ = nh_combined_planner_.advertise<geometry_msgs::PoseStamped>("debug_pose", 0);
     dbgMarkerPub_ = nh_combined_planner_.advertise<visualization_msgs::Marker>("debug_marker", 0);
+    jointStatePub_ = nh_combined_planner_.advertise<sensor_msgs::JointState>("joint_positions", 0);
 
     armPlanMoveServer_.reset(new actionlib::SimpleActionServer<ArgoCombinedPlanAction>(nh_combined_planner_, "",
                                  boost::bind(&ArgoMoveGroupBasePlanner::combinedPlanActionCB, this, _1), false) );
@@ -122,6 +125,10 @@ void ArgoMoveGroupBasePlanner::combinedPlanActionCB(const ArgoCombinedPlanGoalCo
 
     // perform requested action
     switch (request->action_type.val) {
+    case ActionCodes::SAMPLE:
+        sampleOnlyCB(params, result);
+        break;
+
     case ActionCodes::PLAN_BASE:
         basePlanRequestCB(request, result);
         break;
@@ -131,7 +138,7 @@ void ArgoMoveGroupBasePlanner::combinedPlanActionCB(const ArgoCombinedPlanGoalCo
         break;
 
     case ActionCodes::MOVE_ARM:
-        armMoveRequestCB(request, result);
+        armMoveRequestCB(params, result);
         break;
 
     default:
@@ -258,10 +265,41 @@ void ArgoMoveGroupBasePlanner::basePlanRequestCB(const ArgoCombinedPlanGoalConst
     result.success.val = ErrorCodes::SUCCESS;
 }
 
+void ArgoMoveGroupBasePlanner::sampleOnlyCB(const ObjectTypeParams &params, ArgoCombinedPlanResult &result)
+{
+    // sample camera poses
+    { // planning scene lock only for sampling
+        planning_scene_monitor::LockedPlanningSceneRO lScene(context_->planning_scene_monitor_);
+        sampleCameraPoses(target_, params, 50);
+    }
+
+    if (!samples_.size())
+    {
+        result.success.val = ErrorCodes::SAMPLING_FAILED;
+        return;
+    }
+
+    result.success.val = ErrorCodes::SUCCESS;
+
+    if (jointStatePub_.getNumSubscribers())
+    {
+        for (auto &s : samples_)
+        {
+            sensor_msgs::JointState msg;
+            for(auto &q : s.getJointValues())
+            {
+                msg.name.push_back(q.first);
+                msg.position.push_back(q.second);
+            }
+            jointStatePub_.publish(msg);
+        }
+    }
+}
+
 
 /*--- private functions ---*/
 
-bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectTypeParams &params, size_t max_num_samples, bool do_ik, ros::Duration max_time)
+bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectTypeParams params, size_t max_num_samples, bool do_ik, ros::Duration max_time)
 {
     samples_.clear();
 
