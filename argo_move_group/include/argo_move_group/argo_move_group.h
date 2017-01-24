@@ -29,8 +29,8 @@ private:
 
     void dynamicMapCB(const nav_msgs::OccupancyGrid &msg);
 
-    void armPlanRequestCB(const argo_move_group_msgs::ArgoCombinedPlanGoalConstPtr &msg, argo_move_group_msgs::ArgoCombinedPlanResult &result);
-    void armMoveRequestCB(const argo_move_group_msgs::ArgoCombinedPlanGoalConstPtr &msg, argo_move_group_msgs::ArgoCombinedPlanResult &result);
+    void armPlanRequestCB(const ObjectTypeParams &params, argo_move_group_msgs::ArgoCombinedPlanResult &result);
+    void armMoveRequestCB(const ObjectTypeParams &params, argo_move_group_msgs::ArgoCombinedPlanResult &result);
     void basePlanRequestCB(const argo_move_group_msgs::ArgoCombinedPlanGoalConstPtr &request, argo_move_group_msgs::ArgoCombinedPlanResult &result);
 
     // --- functions ---

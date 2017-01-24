@@ -112,6 +112,9 @@ void ArgoMoveGroupBasePlanner::combinedPlanActionCB(const ArgoCombinedPlanGoalCo
     tf::poseEigenToMsg(target_, target_msg.pose);
     dbgPosePub_.publish(target_msg);
 
+    // get params for current checkpoint
+    ObjectTypeParams params = getParams(request->object_type.data, request->object_id.data);
+
     ROS_INFO_STREAM("Argo CombinedPlan Request received:" << " action: " << 0 + request->action_type.val << " object: " << request->object_id.data << " " << request->object_type.data << std::endl
                     << "   target p: (" << target_msg.pose.position.x << " " << target_msg.pose.position.y << " " << target_msg.pose.position.z << ")" << std::endl
                     << "          m: (" << target_msg.pose.orientation.x << " " << target_msg.pose.orientation.y << " " << target_msg.pose.orientation.z << " " << target_msg.pose.orientation.w << ")");
@@ -124,7 +127,7 @@ void ArgoMoveGroupBasePlanner::combinedPlanActionCB(const ArgoCombinedPlanGoalCo
         break;
 
     case ActionCodes::SAMPLE_MOVE_ARM:
-        armPlanRequestCB(request, result);
+        armPlanRequestCB(params, result);
         break;
 
     case ActionCodes::MOVE_ARM:
@@ -138,17 +141,16 @@ void ArgoMoveGroupBasePlanner::combinedPlanActionCB(const ArgoCombinedPlanGoalCo
     armPlanMoveServer_->setSucceeded(result);
 }
 
-void ArgoMoveGroupBasePlanner::armPlanRequestCB(const ArgoCombinedPlanGoalConstPtr &msg, ArgoCombinedPlanResult &result)
+void ArgoMoveGroupBasePlanner::armPlanRequestCB(const ObjectTypeParams &params, ArgoCombinedPlanResult &result)
 {
     ROS_INFO_STREAM("ArmPlanRequest received:");
-    ObjectTypeParams params = getParams(msg->object_type.data, msg->object_id.data);
 
     { // Begin planning lock
-    planning_scene_monitor::LockedPlanningSceneRW l_scene(context_->planning_scene_monitor_);
+        planning_scene_monitor::LockedPlanningSceneRW l_scene(context_->planning_scene_monitor_);
 
-    sampleCameraPoses(target_, params, 25, true);
+        sampleCameraPoses(target_, params, 25, true);
 
-    ROS_INFO("End of planning part");
+        ROS_INFO("End of planning part");
     } // End  planning lock
 
     if (!samples_.size())
@@ -157,14 +159,11 @@ void ArgoMoveGroupBasePlanner::armPlanRequestCB(const ArgoCombinedPlanGoalConstP
         return;
     }
 
-    armMoveRequestCB(msg, result);
+    armMoveRequestCB(params, result);
 }
 
-void ArgoMoveGroupBasePlanner::armMoveRequestCB(const ArgoCombinedPlanGoalConstPtr &msg, ArgoCombinedPlanResult &result)
+void ArgoMoveGroupBasePlanner::armMoveRequestCB(const ObjectTypeParams &params, ArgoCombinedPlanResult &result)
 {
-    // get params for current checkpoint
-    ObjectTypeParams params = getParams(msg->object_type.data, msg->object_id.data);
-
     // create motion plan request
     planning_interface::MotionPlanRequest plan_req;
     plan_req.group_name = params.group;
@@ -419,7 +418,7 @@ bool ArgoMoveGroupBasePlanner::castRay(const boost::shared_ptr<const octomap::Oc
 //    std::cout << "tgt:" << tgt.x() << " " << tgt.y() << " " << tgt.z() << std::endl;
 //    std::cout << "dir:" << dir.x() << " " << dir.y() << " " << dir.z() << std::endl;
 
-    return !octree->castRay(ori, dir, tgt, true, dir.norm() - octree->getResolution());
+    return !octree->castRay(ori, dir, tgt, true, dir.norm() - 1.414 * octree->getResolution());
 }
 
 bool ArgoMoveGroupBasePlanner::planUsingPlanningPipeline(const planning_interface::MotionPlanRequest &req, plan_execution::ExecutableMotionPlan &plan)
