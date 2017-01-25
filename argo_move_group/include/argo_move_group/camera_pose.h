@@ -28,7 +28,7 @@ typedef std::map<std::string, ObjectTypeParams> ObjectTypeParamsMap;
 class CameraPose : public Eigen::Affine3d
 {
 public:
-    CameraPose(const Eigen::Affine3d &target, double aX, double aY, double dist, const ObjectTypeParams &params);
+    CameraPose(const Eigen::Affine3d &target, double aX, double aY, double dist);
     virtual ~CameraPose() {}
 
     inline double getValue() const {return value_;}
@@ -43,7 +43,6 @@ public:
     inline double getAngleX() const {return angleX_;}
     inline double getAngleY() const {return angleY_;}
 
-private:
     void computeValue(const ObjectTypeParams &params);
 
 private:

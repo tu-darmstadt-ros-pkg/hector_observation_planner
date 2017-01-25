@@ -7,7 +7,7 @@
 using namespace argo_move_group;
 using namespace Eigen;
 
-CameraPose::CameraPose(const Affine3d &target, double aX, double aY, double dist, const ObjectTypeParams &params) :
+CameraPose::CameraPose(const Affine3d &target, double aX, double aY, double dist) :
     Affine3d(target *                                 // goto target pose
              AngleAxisd(aY, Vector3d::UnitY()) *      // second rotation about fixed Y-Axis
              AngleAxisd(aX, Vector3d::UnitX()) *      // first rotation about fixed X-Axis
@@ -16,9 +16,10 @@ CameraPose::CameraPose(const Affine3d &target, double aX, double aY, double dist
              AngleAxisd(-M_PI_2, Vector3d::UnitY())), // last rotate to use cam link instead of optical frame)
     angleX_(aX),
     angleY_(aY),
-    dist_(dist)
+    dist_(dist),
+    value_(-1.0)
 {
-    computeValue(params);
+    //computeValue(params);
 }
 
 void CameraPose::computeValue(const ObjectTypeParams &params)

@@ -325,6 +325,13 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
     }
     boost::shared_ptr<const octomap::OcTree> octree(dynamic_cast<const shapes::OcTree *>(octo_obj->shapes_[0].get())->octree);
 
+
+    const moveit::core::JointModelGroup* group = scene_->getRobotModel()->getJointModelGroup(params.group);
+    const std::vector<std::string> link_names = group->getLinkModelNames();
+
+    Eigen::Affine3d group_root_link_transform (scene_->getFrameTransform(link_names[0]));
+    int num_root_distance_rejects = 0;
+
     // LOOP until enough samples are generated or timeout occurs
     ros::Time timeout = ros::Time::now() + max_time;
     while (samples_.size() < max_num_samples
@@ -343,7 +350,17 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
         //ROS_INFO_STREAM("Sample: X " << angleX << " Y " << angleY << " D " << dist);
 
         // generate sample pose
-        CameraPose cp(_target, angleX, angleY, dist, params);
+        CameraPose cp(_target, angleX, angleY, dist);
+
+        double distance_from_group_root = (cp.translation() - group_root_link_transform.translation()).norm();
+
+        if (do_ik && (distance_from_group_root > 1.4))
+        {
+          ++num_root_distance_rejects;
+          continue;
+        }
+
+        cp.computeValue(params);
 
         // check if sample is valid
         if (castRay(octree, cp.translation(), _target.translation()))
@@ -391,7 +408,7 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
             }
         } //END IF  castRay()
     } // END LOOP
-    ROS_INFO_STREAM("Generated " << samples_.size() << " samples in " << ros::Time::now() - timeout + max_time << "seconds.");
+    ROS_INFO_STREAM("Generated " << samples_.size() << " samples in " << ros::Time::now() - timeout + max_time << "seconds. Rejected " << num_root_distance_rejects << " dist from root link exceed samples");
 
     // sort best samples at the end of the vector
     std::sort(samples_.begin(), samples_.end(), [](const CameraPose& a, const CameraPose& b){return a.getValue() < b.getValue();});
@@ -401,6 +418,8 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
         posesMsg.header.frame_id = scene_->getPlanningFrame();
         cameraPoseesPub_.publish(posesMsg);
     }
+
+    return true;
 }
 
 bool ArgoMoveGroupBasePlanner::stateCheckerFN(moveit::core::RobotState *robot_state, const moveit::core::JointModelGroup *joint_group, const double *joint_group_variable_values)
