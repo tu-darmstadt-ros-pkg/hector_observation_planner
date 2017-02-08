@@ -157,7 +157,7 @@ void ArgoMoveGroupBasePlanner::armPlanRequestCB(const ObjectTypeParams &params, 
 
         sampleCameraPoses(target_, params, 25, true);
 
-        ROS_INFO("End of planning part");
+        ROS_INFO("End of sampling part");
     } // End  planning lock
 
     if (!samples_.size())
@@ -305,14 +305,20 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
 
     geometry_msgs::PoseArray posesMsg;
 
+    double max_dist_cam_from_group_root = 1.4;
+
+    const moveit::core::JointModelGroup* group = scene_->getRobotModel()->getJointModelGroup(params.group);
+    const std::vector<std::string>& link_names = group->getLinkModelNames();
+    Eigen::Affine3d group_root_link_transform (scene_->getFrameTransform(link_names[0]));
+
     // only sample around current position
     if (do_ik)
     {
-        Vector3d pos_cam = scene_->getFrameTransform(cam_frame_).translation();
-        Vector3d pos_tgt = target.translation();
-        double d = Vector3d(pos_cam - pos_tgt).lpNorm<2>();
-        params.dist_min = std::max(d - 1.25, params.dist_min);
-        params.dist_max = std::min(d + 1.25, params.dist_max);
+        Vector3d pos_robot (group_root_link_transform.translation());
+        Vector3d pos_tgt (target.translation());
+        double d = Vector3d(pos_robot - pos_tgt).lpNorm<2>();
+        params.dist_min = std::max(d - max_dist_cam_from_group_root, params.dist_min);
+        params.dist_max = std::min(d + max_dist_cam_from_group_root, params.dist_max);
         ROS_INFO_STREAM("Sampling Dist:" << params.dist_min << " => " << params.dist_max);
     }
 
@@ -326,10 +332,9 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
     boost::shared_ptr<const octomap::OcTree> octree(dynamic_cast<const shapes::OcTree *>(octo_obj->shapes_[0].get())->octree);
 
 
-    const moveit::core::JointModelGroup* group = scene_->getRobotModel()->getJointModelGroup(params.group);
-    const std::vector<std::string> link_names = group->getLinkModelNames();
 
-    Eigen::Affine3d group_root_link_transform (scene_->getFrameTransform(link_names[0]));
+
+
     int num_root_distance_rejects = 0;
 
     // LOOP until enough samples are generated or timeout occurs
@@ -337,7 +342,7 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
     while (samples_.size() < max_num_samples
            && ros::Time::now() < timeout)
     {
-        Affine3d _target = target;
+        Affine3d _target (target);
         // draw sample
         double angleX = rand_.uniformReal(params.angle_x_low, params.angle_x_high);
         double angleY = rand_.uniformReal(params.angle_y_low, params.angle_y_high);
@@ -354,7 +359,7 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
 
         double distance_from_group_root = (cp.translation() - group_root_link_transform.translation()).norm();
 
-        if (do_ik && (distance_from_group_root > 1.4))
+        if (do_ik && (distance_from_group_root > max_dist_cam_from_group_root))
         {
           ++num_root_distance_rejects;
           continue;
