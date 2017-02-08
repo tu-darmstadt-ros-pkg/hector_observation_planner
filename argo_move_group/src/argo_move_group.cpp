@@ -306,6 +306,7 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
     geometry_msgs::PoseArray posesMsg;
 
     double max_dist_cam_from_group_root = 1.4;
+    double squared_max_dist_cam_from_group_root = max_dist_cam_from_group_root * max_dist_cam_from_group_root;
 
     const moveit::core::JointModelGroup* group = scene_->getRobotModel()->getJointModelGroup(params.group);
     const std::vector<std::string>& link_names = group->getLinkModelNames();
@@ -336,6 +337,7 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
 
 
     int num_root_distance_rejects = 0;
+    int num_octo_raycast_rejects = 0;
 
     // LOOP until enough samples are generated or timeout occurs
     ros::Time timeout = ros::Time::now() + max_time;
@@ -347,6 +349,7 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
         double angleX = rand_.uniformReal(params.angle_x_low, params.angle_x_high);
         double angleY = rand_.uniformReal(params.angle_y_low, params.angle_y_high);
         double dist = rand_.uniformReal(params.dist_min, params.dist_max);
+
         if (params.from_back && rand_.uniformInteger(0,1))
         {
             _target = target * AngleAxisd(M_PI, Vector3d::UnitX());
@@ -357,19 +360,22 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
         // generate sample pose
         CameraPose cp(_target, angleX, angleY, dist);
 
-        double distance_from_group_root = (cp.translation() - group_root_link_transform.translation()).norm();
+        double squared_distance_from_group_root = (cp.translation() - group_root_link_transform.translation()).squaredNorm();
 
-        if (do_ik && (distance_from_group_root > max_dist_cam_from_group_root))
+        if (do_ik && (squared_distance_from_group_root > squared_max_dist_cam_from_group_root))
         {
           ++num_root_distance_rejects;
           continue;
         }
 
-        cp.computeValue(params);
+
+
 
         // check if sample is valid
         if (castRay(octree, cp.translation(), _target.translation()))
         {
+            cp.computeValue(params);
+
             bool add_cp = false;
             if (do_ik)
             {
@@ -411,9 +417,12 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
                 tf::poseEigenToMsg(cp, pMsg);
                 posesMsg.poses.push_back(pMsg);
             }
-        } //END IF  castRay()
+        }else{ //END IF  castRay()
+          ++num_octo_raycast_rejects;
+        }
     } // END LOOP
-    ROS_INFO_STREAM("Generated " << samples_.size() << " samples in " << ros::Time::now() - timeout + max_time << "seconds. Rejected " << num_root_distance_rejects << " dist from root link exceed samples");
+    ROS_INFO_STREAM("Generated " << samples_.size() << " samples in " << ros::Time::now() - timeout + max_time << "seconds. Rejected "
+                    << num_root_distance_rejects << " dist from root link exceed samples and " << num_octo_raycast_rejects << " octo raycast samples.");
 
     // sort best samples at the end of the vector
     std::sort(samples_.begin(), samples_.end(), [](const CameraPose& a, const CameraPose& b){return a.getValue() < b.getValue();});
