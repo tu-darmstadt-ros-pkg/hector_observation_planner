@@ -336,8 +336,10 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
 
 
 
+
     int num_root_distance_rejects = 0;
     int num_octo_raycast_rejects = 0;
+    int num_ik_rejects = 0;
 
     // LOOP until enough samples are generated or timeout occurs
     ros::Time timeout = ros::Time::now() + max_time;
@@ -350,6 +352,8 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
         double angleY = rand_.uniformReal(params.angle_y_low, params.angle_y_high);
         double dist = rand_.uniformReal(params.dist_min, params.dist_max);
 
+        // Note this doesn't play well with the single visibility constraint set further below,
+        // as it gets pulled out and we commit ourselves to one side there
         if (params.from_back && rand_.uniformInteger(0,1))
         {
             _target = target * AngleAxisd(M_PI, Vector3d::UnitX());
@@ -374,7 +378,6 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
         // check if sample is valid
         if (castRay(octree, cp.translation(), _target.translation()))
         {
-            cp.computeValue(params);
 
             bool add_cp = false;
             if (do_ik)
@@ -382,11 +385,13 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
                 moveit::core::RobotState state = scene_->getCurrentState();
                 kinematics::KinematicsQueryOptions opt;
                 opt.return_approximate_solution = true;
+
                 // move target few cm ahead and set this position as target for visibility constraint
-                tf::poseEigenToMsg(_target * Translation3d(Vector3d(0,0,octree->getResolution()*1.5)),
+                tf::poseEigenToMsg(target * Translation3d(Vector3d(0,0,octree->getResolution()*1.5)),
                                    constraints_.visibility_constraints.begin()->target_pose.pose);
                 //tf::poseEigenToMsg(_target, constraints_.visibility_constraints.begin()->target_pose.pose);
                 constraints_.visibility_constraints.begin()->target_radius = params.radius;
+
                 if (state.setFromIK(state.getJointModelGroup(params.group), cp, 0, 0.005, stateCheckerCB, opt))
                 {
                     //store joint positions for this solution
@@ -395,6 +400,9 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
                     {
                         cp.addJointValue(n, state.getVariablePosition(n));
                     }
+
+                    cp.computeValue(params);
+
                     double d = state.distance(scene_->getCurrentState());
                     double v = 1.0 - (std::min(names.size()*M_PI, d) / (names.size()*M_PI));
                     cp.setValue(cp.getValue()*v*v);
@@ -402,11 +410,14 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
                     // add sample
                     samples_.push_back(cp);
                     add_cp = true;
+                }else{
+                  ++num_ik_rejects;
                 }
             }
             else
             {
                 //ROS_INFO_STREAM("P " << p[0] << " " << p[1] << ": " << map_.atPosition("occupancy", p));
+                cp.computeValue(params);
                 samples_.push_back(cp);
                 add_cp = true;
             }
@@ -422,7 +433,8 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
         }
     } // END LOOP
     ROS_INFO_STREAM("Generated " << samples_.size() << " samples in " << ros::Time::now() - timeout + max_time << "seconds. Rejected "
-                    << num_root_distance_rejects << " dist from root link exceed samples and " << num_octo_raycast_rejects << " octo raycast samples.");
+                    << num_root_distance_rejects << " dist from root link exceed samples, " << num_octo_raycast_rejects
+                    << " octo raycast samples," << num_ik_rejects << " no ik samples");
 
     // sort best samples at the end of the vector
     std::sort(samples_.begin(), samples_.end(), [](const CameraPose& a, const CameraPose& b){return a.getValue() < b.getValue();});
