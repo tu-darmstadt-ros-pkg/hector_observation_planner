@@ -18,7 +18,7 @@ public:
     static const std::string OCCUPANCY_LAYER;
     static const std::string REACH_COST_LAYER;
 
-    WorkspaceGridMap(std::string wsNS, Eigen::Vector2d footprint);
+    WorkspaceGridMap(std::string wsNS, const Eigen::Vector2d& footprint);
     virtual ~WorkspaceGridMap();
 
     void dynamicOccupancyUpdate(const nav_msgs::OccupancyGrid &updateMsg);
@@ -30,7 +30,7 @@ public:
 
     void fillData(const std::vector<CameraPose> &cameraPoseList, double yaw, double height, bool freeRollAngle = false);
 
-    float getValue(Eigen::Affine3d poseGlobal) const;
+    float getValue(const Eigen::Affine3d& poseGlobal) const;
     float getValue(float x, float y) const;
 
     float getMaxPosition(Eigen::Vector2d &pos);

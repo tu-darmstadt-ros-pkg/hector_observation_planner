@@ -330,7 +330,7 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
         ROS_ERROR_STREAM("Octomap object could not be retrieved from planning scene.");
         return false;
     }
-    boost::shared_ptr<const octomap::OcTree> octree(dynamic_cast<const shapes::OcTree *>(octo_obj->shapes_[0].get())->octree);
+    std::shared_ptr<const octomap::OcTree> octree(dynamic_cast<const shapes::OcTree *>(octo_obj->shapes_[0].get())->octree);
 
 
 
@@ -486,7 +486,7 @@ void ArgoMoveGroupBasePlanner::clearTargetArea(Affine3d target, Vector3d margin)
     }
 }
 
-bool ArgoMoveGroupBasePlanner::castRay(const boost::shared_ptr<const octomap::OcTree> &octree,
+bool ArgoMoveGroupBasePlanner::castRay(const std::shared_ptr<const octomap::OcTree> &octree,
                                        const Vector3d &origin, const Vector3d &target)
 {
     octomap::point3d ori;

@@ -7,22 +7,22 @@
 #include <grid_map_cv/grid_map_cv.hpp>
 
 using namespace argo_move_group;
-using namespace grid_map;
-using namespace Eigen;
+//using namespace grid_map;
+//using namespace Eigen;
 using namespace VirtualRobot;
 
 const std::string WorkspaceGridMap::BASE_POSE_LAYER("basePoseLayer");
 const std::string WorkspaceGridMap::OCCUPANCY_LAYER("occupancyLayer");
 const std::string WorkspaceGridMap::REACH_COST_LAYER("reachCostLayer");
 
-WorkspaceGridMap::WorkspaceGridMap(std::string wsNS, Vector2d footprint)
+WorkspaceGridMap::WorkspaceGridMap(std::string wsNS, const Eigen::Vector2d& footprint)
 {
     ws_ = WorkspaceRepresentationROSPtr(new WorkspaceRepresentationROS(wsNS));
     grid_map_polygon_tools::setFootprintPoly(footprint(0), footprint(1), footprint_);
 
-    map_ = GridMap({BASE_POSE_LAYER, OCCUPANCY_LAYER, REACH_COST_LAYER});
+    map_ = grid_map::GridMap({BASE_POSE_LAYER, OCCUPANCY_LAYER, REACH_COST_LAYER});
     maxVal_ = NAN;
-    maxIdx_ = Index(-1,-1);
+    maxIdx_ = grid_map::Index(-1,-1);
 }
 
 WorkspaceGridMap::~WorkspaceGridMap()
@@ -32,21 +32,21 @@ WorkspaceGridMap::~WorkspaceGridMap()
 void
 WorkspaceGridMap::dynamicOccupancyUpdate(const nav_msgs::OccupancyGrid &updateMsg)
 {
-    GridMapRosConverter::fromOccupancyGrid(updateMsg, OCCUPANCY_LAYER, map_);
+    grid_map::GridMapRosConverter::fromOccupancyGrid(updateMsg, OCCUPANCY_LAYER, map_);
 }
 
 void
-WorkspaceGridMap::fillData(const Affine3d &eefPoseGlobal, double yaw, bool freeRollAngle)
+WorkspaceGridMap::fillData(const Eigen::Affine3d &eefPoseGlobal, double yaw, bool freeRollAngle)
 {
-    std::vector<Affine3d> poseList{eefPoseGlobal};
+    std::vector<Eigen::Affine3d> poseList{eefPoseGlobal};
 
     fillData(poseList, yaw, freeRollAngle);
 }
 
 void
-WorkspaceGridMap::fillData(const std::vector<Affine3d> &eefPoseList, double yaw, bool freeRollAngle)
+WorkspaceGridMap::fillData(const std::vector<Eigen::Affine3d> &eefPoseList, double yaw, bool freeRollAngle)
 {
-    if (!map_.isValid(Index(0,0), OCCUPANCY_LAYER))
+    if (!map_.isValid(grid_map::Index(0,0), OCCUPANCY_LAYER))
     {
         ROS_ERROR("Did not yet receive dynamic occupancy map! Cannot fill GridMap.");
         return;
@@ -54,21 +54,21 @@ WorkspaceGridMap::fillData(const std::vector<Affine3d> &eefPoseList, double yaw,
 
     map_.clear(BASE_POSE_LAYER);
     maxVal_ = NAN;
-    maxIdx_ = Index(-1,-1);
+    maxIdx_ = grid_map::Index(-1,-1);
 
-    Affine3d tmpPose(AngleAxisd(yaw, Vector3d::UnitZ()));
-    for (GridMapIterator mapIt(map_); !mapIt.isPastEnd(); ++mapIt)
+    Eigen::Affine3d tmpPose(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
+    for (grid_map::GridMapIterator mapIt(map_); !mapIt.isPastEnd(); ++mapIt)
     {
         // get position of current pose
-        Position3 p3;
+        grid_map::Position3 p3;
         map_.getPosition3(OCCUPANCY_LAYER, *mapIt, p3);
         tmpPose.translation() = p3;
         //ROS_INFO("tmpPose: (%.2f %.2f) %3f", p3[0], p3[1], p3[2]);
 
         // check for free footprint at current pose
         bool freeFootprint = true;
-        Polygon poly = grid_map_polygon_tools::getTransformedPoly(footprint_, tmpPose);
-        for (PolygonIterator polyIt(map_, poly); !polyIt.isPastEnd(); ++polyIt)
+        grid_map::Polygon poly = grid_map_polygon_tools::getTransformedPoly(footprint_, tmpPose);
+        for (grid_map::PolygonIterator polyIt(map_, poly); !polyIt.isPastEnd(); ++polyIt)
         {
             if (map_.at(OCCUPANCY_LAYER, *polyIt) > 65.0)
             {
@@ -85,7 +85,7 @@ WorkspaceGridMap::fillData(const std::vector<Affine3d> &eefPoseList, double yaw,
         ws_->setWSPose(tmpPose);
         float &entry = map_.at(BASE_POSE_LAYER, *mapIt);
         entry = 0.0;
-        BOOST_FOREACH(Affine3d eefPose, eefPoseList)
+        BOOST_FOREACH(Eigen::Affine3d eefPose, eefPoseList)
         {
             // get and add value of this enrty
             if (freeRollAngle)
@@ -109,7 +109,7 @@ WorkspaceGridMap::fillData(const std::vector<Affine3d> &eefPoseList, double yaw,
 
     // achieve values between 0 and 1
     map_.get(BASE_POSE_LAYER) /= maxVal_;
-    Position3 p3;
+    grid_map::Position3 p3;
     map_.getPosition3(BASE_POSE_LAYER, maxIdx_, p3);
     ROS_INFO("MaxValue: %.1f, at (%.2f %.2f) %.1f", maxVal_, p3[0], p3[1], p3[2]);
 }
@@ -126,11 +126,11 @@ WorkspaceGridMap::fillData(const std::vector<CameraPose> &cameraPoseList, double
     // reset data
     map_.clear(BASE_POSE_LAYER);
     maxVal_ = NAN;
-    maxIdx_ = Index(-1,-1);
+    maxIdx_ = grid_map::Index(-1,-1);
 
     // find appropriate submap
-    Position minBB, maxBB;
-    map_.getPosition(Index(0,0), minBB);
+    grid_map::Position minBB, maxBB;
+    map_.getPosition(grid_map::Index(0,0), minBB);
     map_.getPosition(map_.getSize(), maxBB);
     BOOST_FOREACH(CameraPose cp, cameraPoseList)
     {
@@ -142,17 +142,17 @@ WorkspaceGridMap::fillData(const std::vector<CameraPose> &cameraPoseList, double
         if (maxBB(1) < y) maxBB(1) = y;
     }
     bool succ;
-    SubmapGeometry subMap(map_, minBB + 0.5 * (maxBB - minBB), Length(maxBB - minBB) + Length(3,3), succ);
+    grid_map::SubmapGeometry subMap(map_, minBB + 0.5 * (maxBB - minBB), grid_map::Length(maxBB - minBB) + grid_map::Length(3,3), succ);
 
     // workspace pose when iterating through Map
-    Affine3d tmpPose(AngleAxisd(yaw, Vector3d::UnitZ()));
+    Eigen::Affine3d tmpPose(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
     tmpPose.translation()(2) = height;
 
     // Fill BasePose GridMap Layer
-    for (SubmapIterator mapIt(subMap); !mapIt.isPastEnd(); ++mapIt)
+    for (grid_map::SubmapIterator mapIt(subMap); !mapIt.isPastEnd(); ++mapIt)
     {
         // get position and value of current pose
-        Position3 currPos;
+        grid_map::Position3 currPos;
         map_.getPosition3(REACH_COST_LAYER, *mapIt, currPos);
         if (currPos(2) < 1e-5)
         {
@@ -165,8 +165,8 @@ WorkspaceGridMap::fillData(const std::vector<CameraPose> &cameraPoseList, double
 
         // check for free footprint at current pose
         bool freeFootprint = true;
-        Polygon poly = grid_map_polygon_tools::getTransformedPoly(footprint_, tmpPose);
-        for (PolygonIterator polyIt(map_, poly); !polyIt.isPastEnd(); ++polyIt)
+        grid_map::Polygon poly = grid_map_polygon_tools::getTransformedPoly(footprint_, tmpPose);
+        for (grid_map::PolygonIterator polyIt(map_, poly); !polyIt.isPastEnd(); ++polyIt)
         {
             if (map_.at(REACH_COST_LAYER, *polyIt) < 1e-5)
             {
@@ -185,7 +185,7 @@ WorkspaceGridMap::fillData(const std::vector<CameraPose> &cameraPoseList, double
         entry = 0.0;
         BOOST_FOREACH(CameraPose cameraPose, cameraPoseList)
         {
-            Position camPos(cameraPose.translation()(0), cameraPose.translation()(1));
+            grid_map::Position camPos(cameraPose.translation()(0), cameraPose.translation()(1));
             if (!map_.isInside(camPos))
                 continue;
 
@@ -216,13 +216,13 @@ WorkspaceGridMap::fillData(const std::vector<CameraPose> &cameraPoseList, double
 
     // achieve values between 0 and 1
     map_.get(BASE_POSE_LAYER) /= maxVal_;
-    Position3 p3;
+    grid_map::Position3 p3;
     map_.getPosition3(BASE_POSE_LAYER, maxIdx_, p3);
     ROS_INFO("MaxValue: %.1f, at (%.2f %.2f) %.1f", maxVal_, p3[0], p3[1], p3[2]);
 }
 
 float
-WorkspaceGridMap::getValue(Affine3d poseGlobal) const
+WorkspaceGridMap::getValue(const Eigen::Affine3d& poseGlobal) const
 {
     return 0.0;
 }
@@ -230,9 +230,9 @@ WorkspaceGridMap::getValue(Affine3d poseGlobal) const
 float
 WorkspaceGridMap::getValue(float x, float y) const
 {
-    if (map_.isInside(Position(x, y)))
+    if (map_.isInside(grid_map::Position(x, y)))
     {
-        return map_.atPosition(BASE_POSE_LAYER, Position(x, y));
+        return map_.atPosition(BASE_POSE_LAYER, grid_map::Position(x, y));
     }
 
     ROS_ERROR("Position not in GridMap!");
@@ -240,7 +240,7 @@ WorkspaceGridMap::getValue(float x, float y) const
 }
 
 float
-WorkspaceGridMap::getMaxPosition(Vector2d &pos)
+WorkspaceGridMap::getMaxPosition(Eigen::Vector2d &pos)
 {
     if (!std::isfinite(maxVal_))
     {
@@ -262,9 +262,9 @@ WorkspaceGridMap::getGridMsg(std::string layer)
 }
 
 void
-WorkspaceGridMap::computeReachCostMap(const Vector2d &origin)
+WorkspaceGridMap::computeReachCostMap(const Eigen::Vector2d &origin)
 {
-    Index originIdx;
+    grid_map::Index originIdx;
     if (!map_.getIndex(origin, originIdx))
     {
         ROS_ERROR("Start position for flood fill outside of GridMap: (%.2f %.2f)", origin(0), origin(1));
@@ -304,5 +304,5 @@ WorkspaceGridMap::computeReachCostMap(const Vector2d &origin)
     reachCostMat.convertTo(reachCostMatTmp, CV_8U, 255.0);
     cvImage.image = reachCostMatTmp(cv::Rect(1, 1, occupancyMatMono.cols, occupancyMatMono.rows));
     sensor_msgs::ImagePtr rosImage = cvImage.toImageMsg();
-    GridMapRosConverter::addLayerFromImage(*rosImage.get(), REACH_COST_LAYER, map_);
+    grid_map::GridMapRosConverter::addLayerFromImage(*rosImage.get(), REACH_COST_LAYER, map_);
 }

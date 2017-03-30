@@ -42,7 +42,7 @@ private:
 
     void clearTargetArea(Eigen::Affine3d target, Eigen::Vector3d margin);
 
-    bool castRay(const boost::shared_ptr<const octomap::OcTree> &octree, const Eigen::Vector3d &origin, const Eigen::Vector3d &target);
+    bool castRay(const std::shared_ptr<const octomap::OcTree> &octree, const Eigen::Vector3d &origin, const Eigen::Vector3d &target);
 
     bool planUsingPlanningPipeline(const planning_interface::MotionPlanRequest &req,
                                    plan_execution::ExecutableMotionPlan &plan);
