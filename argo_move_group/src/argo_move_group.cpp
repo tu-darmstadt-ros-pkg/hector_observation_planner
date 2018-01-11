@@ -555,7 +555,7 @@ void ArgoMoveGroupBasePlanner::readObjectTypes()
 
     XmlRpc::XmlRpcValue objectTypes;
     nh_combined_planner_.getParam("object_types", objectTypes);
-    ROS_ASSERT(objectTypes.getType() == XmlRpc::XmlRpcValue::TypeArray)
+    ROS_ASSERT(objectTypes.getType() == XmlRpc::XmlRpcValue::TypeArray);
 
     for (int i = 0; i < objectTypes.size(); i++)
     {
