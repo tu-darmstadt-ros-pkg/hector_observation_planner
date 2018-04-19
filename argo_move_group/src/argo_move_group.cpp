@@ -78,11 +78,11 @@ void ArgoMoveGroupBasePlanner::initialize()
     double footprint_x, footprint_y;
     root_node_handle_.param("map_combiner_node/footprint_x", footprint_x, 0.4);
     root_node_handle_.param("map_combiner_node/footprint_y", footprint_y, 0.3);
-    wsGridMap_.reset(new WorkspaceGridMap(nh_combined_planner_.getNamespace()+"/simox", Vector2d(footprint_x+0.15, footprint_y+0.025)));
+    //wsGridMap_.reset(new WorkspaceGridMap(nh_combined_planner_.getNamespace()+"/simox", Vector2d(footprint_x+0.15, footprint_y+0.025)));
 
     // --- start ROS action server and subscribers
     armPlanMoveServer_->start();
-    dynamicMapSub_ = node_handle_.subscribe("/dynamic_map", 1, &WorkspaceGridMap::dynamicOccupancyUpdate, wsGridMap_);
+    //dynamicMapSub_ = node_handle_.subscribe("/dynamic_map", 1, &WorkspaceGridMap::dynamicOccupancyUpdate, wsGridMap_);
 }
 
 void ArgoMoveGroupBasePlanner::combinedPlanActionCB(const ArgoCombinedPlanGoalConstPtr &request)
@@ -130,7 +130,9 @@ void ArgoMoveGroupBasePlanner::combinedPlanActionCB(const ArgoCombinedPlanGoalCo
         break;
 
     case ActionCodes::PLAN_BASE:
-        basePlanRequestCB(request, result);
+        //basePlanRequestCB(request, result);
+        ROS_ERROR("Base pose planning not supported currently! Removed to avoid dependency on Simox");
+        result.success.val = ErrorCodes::PLANNING_FAILED;
         break;
 
     case ActionCodes::SAMPLE_MOVE_ARM:
@@ -227,6 +229,7 @@ void ArgoMoveGroupBasePlanner::armMoveRequestCB(const ObjectTypeParams &params, 
     }
 }
 
+/*
 void ArgoMoveGroupBasePlanner::basePlanRequestCB(const ArgoCombinedPlanGoalConstPtr &request, ArgoCombinedPlanResult &result)
 {
     ROS_INFO("basePlanRequest received: yaw %f", request->base_yaw);
@@ -264,6 +267,7 @@ void ArgoMoveGroupBasePlanner::basePlanRequestCB(const ArgoCombinedPlanGoalConst
     tf::poseEigenToMsg(maxPose, result.waypoint.pose);
     result.success.val = ErrorCodes::SUCCESS;
 }
+*/
 
 void ArgoMoveGroupBasePlanner::sampleOnlyCB(const ObjectTypeParams &params, ArgoCombinedPlanResult &result)
 {

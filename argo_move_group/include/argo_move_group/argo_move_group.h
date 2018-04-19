@@ -5,7 +5,7 @@
 #include <actionlib/server/simple_action_server.h>
 
 #include <argo_move_group/camera_pose.h>
-#include <argo_move_group/workspace_grid.h>
+//#include <argo_move_group/workspace_grid.h>
 #include <argo_move_group_msgs/ArgoCombinedPlanAction.h>
 #include <moveit/move_group/move_group_capability.h>
 #include <moveit_msgs/Constraints.h>
@@ -76,7 +76,7 @@ private:
     std::string cam_frame_;
     ObjectTypeParamsMap object_type_parms_;
 
-    WorkspaceGridMapPtr wsGridMap_;
+    //WorkspaceGridMapPtr wsGridMap_;
 
     Eigen::Affine3d target_;
 

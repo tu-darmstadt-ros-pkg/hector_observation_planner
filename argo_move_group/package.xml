@@ -38,7 +38,7 @@
   <depend>pluginlib</depend>
   <depend>moveit_ros_move_group</depend>
   <depend>argo_move_group_msgs</depend>
-  <depend>hector_simox_ros</depend>
+  <!--<depend>hector_simox_ros</depend>-->
   <depend>grid_map_ros</depend>
   <depend>grid_map_proc</depend>
   <depend>grid_map_cv</depend>

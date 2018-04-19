@@ -8,7 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
   pluginlib
   moveit_ros_move_group
   argo_move_group_msgs
-  hector_simox_ros
+  #hector_simox_ros
   grid_map_ros
   grid_map_proc
   grid_map_cv
@@ -55,7 +55,7 @@ include_directories(
 add_library(argo_move_group
   src/argo_move_group.cpp
   src/camera_pose.cpp
-  src/workspace_grid.cpp
+  #src/workspace_grid.cpp
 )
 
 ## Add cmake target dependencies of the library
