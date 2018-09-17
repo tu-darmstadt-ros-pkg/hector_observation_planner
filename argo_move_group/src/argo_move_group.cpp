@@ -495,7 +495,7 @@ bool ArgoMoveGroupBasePlanner::castRay(const std::shared_ptr<const octomap::OcTr
 {
     octomap::point3d ori;
     tf::pointEigenToOctomap(origin, ori);
-
+    
     octomap::point3d tgt;
     tf::pointEigenToOctomap(target, tgt);
 
@@ -504,8 +504,8 @@ bool ArgoMoveGroupBasePlanner::castRay(const std::shared_ptr<const octomap::OcTr
 //    std::cout << "ori:" << ori.x() << " " << ori.y() << " " << ori.z() << std::endl;
 //    std::cout << "tgt:" << tgt.x() << " " << tgt.y() << " " << tgt.z() << std::endl;
 //    std::cout << "dir:" << dir.x() << " " << dir.y() << " " << dir.z() << std::endl;
-
-    return !octree->castRay(ori, dir, tgt, true, dir.norm() - 1.414 * octree->getResolution());
+    
+    return !octree->castRay(ori, dir, tgt, true, dir.norm() - (1.414 * octree->getResolution() * 3.0 ));
 }
 
 bool ArgoMoveGroupBasePlanner::planUsingPlanningPipeline(const planning_interface::MotionPlanRequest &req, plan_execution::ExecutableMotionPlan &plan)
