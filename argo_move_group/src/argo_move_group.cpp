@@ -66,6 +66,8 @@ void ArgoMoveGroupBasePlanner::initialize()
 
     armPlanMoveServer_.reset(new actionlib::SimpleActionServer<ArgoCombinedPlanAction>(nh_combined_planner_, "",
                                  boost::bind(&ArgoMoveGroupBasePlanner::combinedPlanActionCB, this, _1), false) );
+    armPlanMoveServer_->registerPreemptCallback(boost::bind(&ArgoMoveGroupBasePlanner::combinedPlanCancelCB, this));
+
 
     // --- initialize data members
     readObjectTypes();
@@ -148,6 +150,10 @@ void ArgoMoveGroupBasePlanner::combinedPlanActionCB(const ArgoCombinedPlanGoalCo
     }
 
     armPlanMoveServer_->setSucceeded(result);
+}
+
+void ArgoMoveGroupBasePlanner::combinedPlanCancelCB(){
+    context_->plan_execution_->stop();
 }
 
 void ArgoMoveGroupBasePlanner::armPlanRequestCB(const ObjectTypeParams &params, ArgoCombinedPlanResult &result)

@@ -26,6 +26,7 @@ public:
 private:
     // --- callbacks for subscribed topics and actions ---
     void combinedPlanActionCB(const argo_move_group_msgs::ArgoCombinedPlanGoalConstPtr &msg);
+    void combinedPlanCancelCB();
 
     void dynamicMapCB(const nav_msgs::OccupancyGrid &msg);
 
