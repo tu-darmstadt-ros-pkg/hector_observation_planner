@@ -37,11 +37,11 @@ private:
 
     // --- functions ---
 
-    bool sampleCameraPoses(const Eigen::Affine3d &target, ObjectTypeParams params, size_t max_num_samples, bool do_ik = true, ros::Duration max_time = ros::Duration(5.0));
+    bool sampleCameraPoses(const Eigen::Isometry3d &target, ObjectTypeParams params, size_t max_num_samples, bool do_ik = true, ros::Duration max_time = ros::Duration(5.0));
 
     bool stateCheckerFN(moveit::core::RobotState *robot_state, const moveit::core::JointModelGroup *joint_group, const double *joint_group_variable_values);
 
-    void clearTargetArea(Eigen::Affine3d target, Eigen::Vector3d margin);
+    void clearTargetArea(Eigen::Isometry3d target, Eigen::Vector3d margin);
 
     bool castRay(const std::shared_ptr<const octomap::OcTree> &octree, const Eigen::Vector3d &origin, const Eigen::Vector3d &target);
 
@@ -79,7 +79,7 @@ private:
 
     //WorkspaceGridMapPtr wsGridMap_;
 
-    Eigen::Affine3d target_;
+    Eigen::Isometry3d target_;
 
 }; // class ArgoMoveGroupBasePlanner
 

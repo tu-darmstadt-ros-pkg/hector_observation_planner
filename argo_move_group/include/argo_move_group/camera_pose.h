@@ -25,10 +25,10 @@ struct ObjectTypeParams
 const std::string DEFAULT_OBJECT_TYPE = "default";
 typedef std::map<std::string, ObjectTypeParams> ObjectTypeParamsMap;
 
-class CameraPose : public Eigen::Affine3d
+class CameraPose : public Eigen::Isometry3d
 {
 public:
-    CameraPose(const Eigen::Affine3d &target, double aX, double aY, double dist);
+    CameraPose(const Eigen::Isometry3d &target, double aX, double aY, double dist);
     virtual ~CameraPose() {}
 
     inline double getValue() const {return value_;}

@@ -25,12 +25,12 @@ public:
 
     void computeReachCostMap(const Eigen::Vector2d &origin);
 
-    void fillData(const Eigen::Affine3d &eefPoseGlobal, double yaw, bool freeRollAngle = false);
-    void fillData(const std::vector<Eigen::Affine3d> &eefPoseList, double yaw, bool freeRollAngle = false);
+    void fillData(const Eigen::Isometry3d &eefPoseGlobal, double yaw, bool freeRollAngle = false);
+    void fillData(const std::vector<Eigen::Isometry3d> &eefPoseList, double yaw, bool freeRollAngle = false);
 
     void fillData(const std::vector<CameraPose> &cameraPoseList, double yaw, double height, bool freeRollAngle = false);
 
-    float getValue(const Eigen::Affine3d& poseGlobal) const;
+    float getValue(const Eigen::Isometry3d& poseGlobal) const;
     float getValue(float x, float y) const;
 
     float getMaxPosition(Eigen::Vector2d &pos);

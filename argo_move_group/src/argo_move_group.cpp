@@ -250,7 +250,7 @@ void ArgoMoveGroupBasePlanner::basePlanRequestCB(const ArgoCombinedPlanGoalConst
     }
 
     // compute reachable area for current robot base pose
-    Affine3d base_pose = scene_->getFrameTransform("base_link");
+    Isometry3d base_pose = scene_->getFrameTransform("base_link");
     wsGridMap_->computeReachCostMap(grid_map::Position(base_pose.translation()(0), base_pose.translation()(1)));
     baseBaseGridPub_.publish(wsGridMap_->getGridMsg(WorkspaceGridMap::REACH_COST_LAYER));
 
@@ -268,7 +268,7 @@ void ArgoMoveGroupBasePlanner::basePlanRequestCB(const ArgoCombinedPlanGoalConst
         return;
     }
 
-    Affine3d maxPose(Translation3d(Vector3d(maxP[0], maxP[1], base_pose.translation()(2))) * AngleAxisd(request->base_yaw, Vector3d::UnitZ()));
+    Isometry3d maxPose(Translation3d(Vector3d(maxP[0], maxP[1], base_pose.translation()(2))) * AngleAxisd(request->base_yaw, Vector3d::UnitZ()));
     result.waypoint.header.frame_id = scene_->getPlanningFrame();
     tf::poseEigenToMsg(maxPose, result.waypoint.pose);
     result.success.val = ErrorCodes::SUCCESS;
@@ -309,7 +309,7 @@ void ArgoMoveGroupBasePlanner::sampleOnlyCB(const ObjectTypeParams &params, Argo
 
 /*--- private functions ---*/
 
-bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectTypeParams params, size_t max_num_samples, bool do_ik, ros::Duration max_time)
+bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Isometry3d &target, ObjectTypeParams params, size_t max_num_samples, bool do_ik, ros::Duration max_time)
 {
     samples_.clear();
 
@@ -320,7 +320,7 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
 
     const moveit::core::JointModelGroup* group = scene_->getRobotModel()->getJointModelGroup(params.group);
     const std::vector<std::string>& link_names = group->getLinkModelNames();
-    Eigen::Affine3d group_root_link_transform (scene_->getFrameTransform(link_names[0]));
+    Eigen::Isometry3d group_root_link_transform (scene_->getFrameTransform(link_names[0]));
 
     // only sample around current position
     if (do_ik)
@@ -356,7 +356,7 @@ bool ArgoMoveGroupBasePlanner::sampleCameraPoses(const Affine3d &target, ObjectT
     while (samples_.size() < max_num_samples
            && ros::Time::now() < timeout)
     {
-        Affine3d _target (target);
+        Isometry3d _target (target);
         // draw sample
         double angleX = rand_.uniformReal(params.angle_x_low, params.angle_x_high);
         double angleY = rand_.uniformReal(params.angle_y_low, params.angle_y_high);
@@ -468,7 +468,7 @@ bool ArgoMoveGroupBasePlanner::stateCheckerFN(moveit::core::RobotState *robot_st
     return !collision && constrained;
 }
 
-void ArgoMoveGroupBasePlanner::clearTargetArea(Affine3d target, Vector3d margin)
+void ArgoMoveGroupBasePlanner::clearTargetArea(Isometry3d target, Vector3d margin)
 {
     // get the current octomap
     moveit_msgs::PlanningScene scene_msg;

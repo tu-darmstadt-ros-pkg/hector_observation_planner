@@ -36,15 +36,15 @@ WorkspaceGridMap::dynamicOccupancyUpdate(const nav_msgs::OccupancyGrid &updateMs
 }
 
 void
-WorkspaceGridMap::fillData(const Eigen::Affine3d &eefPoseGlobal, double yaw, bool freeRollAngle)
+WorkspaceGridMap::fillData(const Eigen::Isometry3d &eefPoseGlobal, double yaw, bool freeRollAngle)
 {
-    std::vector<Eigen::Affine3d> poseList{eefPoseGlobal};
+    std::vector<Eigen::Isometry3d> poseList{eefPoseGlobal};
 
     fillData(poseList, yaw, freeRollAngle);
 }
 
 void
-WorkspaceGridMap::fillData(const std::vector<Eigen::Affine3d> &eefPoseList, double yaw, bool freeRollAngle)
+WorkspaceGridMap::fillData(const std::vector<Eigen::Isometry3d> &eefPoseList, double yaw, bool freeRollAngle)
 {
     if (!map_.isValid(grid_map::Index(0,0), OCCUPANCY_LAYER))
     {
@@ -56,7 +56,7 @@ WorkspaceGridMap::fillData(const std::vector<Eigen::Affine3d> &eefPoseList, doub
     maxVal_ = NAN;
     maxIdx_ = grid_map::Index(-1,-1);
 
-    Eigen::Affine3d tmpPose(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
+    Eigen::Isometry3d tmpPose(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
     for (grid_map::GridMapIterator mapIt(map_); !mapIt.isPastEnd(); ++mapIt)
     {
         // get position of current pose
@@ -85,7 +85,7 @@ WorkspaceGridMap::fillData(const std::vector<Eigen::Affine3d> &eefPoseList, doub
         ws_->setWSPose(tmpPose);
         float &entry = map_.at(BASE_POSE_LAYER, *mapIt);
         entry = 0.0;
-        BOOST_FOREACH(Eigen::Affine3d eefPose, eefPoseList)
+        BOOST_FOREACH(Eigen::Isometry3d eefPose, eefPoseList)
         {
             // get and add value of this enrty
             if (freeRollAngle)
@@ -145,7 +145,7 @@ WorkspaceGridMap::fillData(const std::vector<CameraPose> &cameraPoseList, double
     grid_map::SubmapGeometry subMap(map_, minBB + 0.5 * (maxBB - minBB), grid_map::Length(maxBB - minBB) + grid_map::Length(3,3), succ);
 
     // workspace pose when iterating through Map
-    Eigen::Affine3d tmpPose(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
+    Eigen::Isometry3d tmpPose(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
     tmpPose.translation()(2) = height;
 
     // Fill BasePose GridMap Layer
@@ -222,7 +222,7 @@ WorkspaceGridMap::fillData(const std::vector<CameraPose> &cameraPoseList, double
 }
 
 float
-WorkspaceGridMap::getValue(const Eigen::Affine3d& poseGlobal) const
+WorkspaceGridMap::getValue(const Eigen::Isometry3d& poseGlobal) const
 {
     return 0.0;
 }

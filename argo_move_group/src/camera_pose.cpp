@@ -7,8 +7,8 @@
 using namespace argo_move_group;
 using namespace Eigen;
 
-CameraPose::CameraPose(const Affine3d &target, double aX, double aY, double dist) :
-    Affine3d(target *                                 // goto target pose
+CameraPose::CameraPose(const Isometry3d &target, double aX, double aY, double dist) :
+    Isometry3d(target *                                 // goto target pose
              AngleAxisd(aY, Vector3d::UnitY()) *      // second rotation about fixed Y-Axis
              AngleAxisd(aX, Vector3d::UnitX()) *      // first rotation about fixed X-Axis
              Translation3d(Vector3d(0, 0, dist)) *    // third move by distance in current Z-Dir
