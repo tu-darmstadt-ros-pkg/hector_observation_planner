@@ -17,7 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## System dependencies are found with CMake's conventions
 find_package(Boost REQUIRED COMPONENTS system)
 
-find_package(Eigen REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 add_definitions(${EIGEN_DEFINITIONS})
 add_definitions(-std=gnu++11)
